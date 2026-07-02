@@ -1,5 +1,5 @@
 "use client";
-import { useContext, useState, useMemo } from "react";
+import { useContext, useState, useMemo, useEffect, useRef } from "react";
 import { AppContext } from "@/components/AppProvider";
 import { supabase } from "@/lib/supabase";
 import { ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from "recharts";
@@ -11,8 +11,8 @@ export default function AkunPage() {
   
   const [name, setName] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("Umum");
-  const [newGroupInput, setNewGroupInput] = useState("");
-  const [isAddingNewGroup, setIsAddingNewGroup] = useState(false);
+  const [showGroupDropdown, setShowGroupDropdown] = useState(false);
+  const groupRef = useRef(null);
   const [balance, setBalance] = useState("");
   
   const netWorth = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
@@ -53,12 +53,19 @@ export default function AkunPage() {
     else setBalance("");
   };
 
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (groupRef.current && !groupRef.current.contains(e.target)) setShowGroupDropdown(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const openAddModal = () => {
     setEditData(null);
     setName("");
     setSelectedGroup(existingGroups[0] || "Umum");
-    setNewGroupInput("");
-    setIsAddingNewGroup(false);
+    setShowGroupDropdown(false);
     setBalance("");
     setShowModal(true);
   };
@@ -67,8 +74,7 @@ export default function AkunPage() {
     setEditData(acc);
     setName(acc.name);
     setSelectedGroup(acc.type || "Lainnya");
-    setNewGroupInput("");
-    setIsAddingNewGroup(false);
+    setShowGroupDropdown(false);
     setBalance(Number(acc.balance).toLocaleString('id-ID'));
     setShowModal(true);
   };
@@ -77,7 +83,7 @@ export default function AkunPage() {
     e.preventDefault();
     if (!name.trim()) return alert("Nama akun tidak boleh kosong.");
     
-    const finalType = isAddingNewGroup ? newGroupInput.trim() : selectedGroup;
+    const finalType = selectedGroup.trim();
     if (!finalType) return alert("Kelompok akun tidak boleh kosong.");
     
     const balanceNum = Number(balance.replace(/\./g, '')) || 0;
@@ -295,44 +301,35 @@ export default function AkunPage() {
                 />
               </div>
 
-              <div>
+              <div className="relative" ref={groupRef}>
                 <label className="block text-xs font-medium text-neutral-400 mb-1">Kelompok Akun</label>
-                {!isAddingNewGroup ? (
-                  <select
-                    className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
-                    value={selectedGroup}
-                    onChange={(e) => {
-                      if (e.target.value === "__ADD_NEW__") {
-                        setIsAddingNewGroup(true);
-                        setNewGroupInput("");
-                      } else {
-                        setSelectedGroup(e.target.value);
-                      }
-                    }}
-                  >
-                    {existingGroups.map(g => (
-                      <option key={g} value={g}>{g}</option>
+                <input 
+                  type="text" required
+                  className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                  value={selectedGroup} 
+                  onChange={(e) => { setSelectedGroup(e.target.value); setShowGroupDropdown(true); }}
+                  onFocus={() => setShowGroupDropdown(true)}
+                  placeholder="Pilih atau ketik kelompok baru..." 
+                />
+                {showGroupDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-neutral-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    {existingGroups.filter(g => g !== "Lainnya" && g.toLowerCase().includes(selectedGroup.toLowerCase())).map(g => (
+                      <div 
+                        key={g} 
+                        className="px-4 py-2.5 hover:bg-neutral-50 cursor-pointer text-sm text-neutral-800" 
+                        onClick={() => { setSelectedGroup(g); setShowGroupDropdown(false); }}
+                      >
+                        {g}
+                      </div>
                     ))}
-                    <option value="__ADD_NEW__">+ Tambah Kelompok Baru...</option>
-                  </select>
-                ) : (
-                  <div className="flex gap-2 items-center">
-                    <input 
-                      type="text" required autoFocus
-                      className="flex-1 bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
-                      value={newGroupInput} onChange={(e) => setNewGroupInput(e.target.value)}
-                      placeholder="Masukkan nama kelompok baru..."
-                    />
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        setIsAddingNewGroup(false);
-                        setSelectedGroup(existingGroups[0] || "Umum");
-                      }} 
-                      className="text-xs font-semibold text-neutral-500 hover:text-neutral-950 px-3 py-3 border border-neutral-200 rounded-xl bg-white shrink-0"
-                    >
-                      Batal
-                    </button>
+                    {selectedGroup.trim() && !existingGroups.find(g => g.toLowerCase() === selectedGroup.trim().toLowerCase()) && (
+                      <div 
+                        className="px-4 py-2.5 hover:bg-neutral-50 cursor-pointer text-sm text-blue-600 font-semibold border-t border-neutral-50"
+                        onClick={() => setShowGroupDropdown(false)}
+                      >
+                        + Tambah "{selectedGroup.trim()}" Sebagai Kelompok Baru
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -343,10 +340,10 @@ export default function AkunPage() {
                       type="button" 
                       onClick={() => {
                         setSelectedGroup(g);
-                        setIsAddingNewGroup(false);
+                        setShowGroupDropdown(false);
                       }}
                       className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                        (!isAddingNewGroup && selectedGroup === g) ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-neutral-50 text-neutral-600 border-neutral-200'
+                        (selectedGroup === g) ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-neutral-50 text-neutral-600 border-neutral-200'
                       }`}
                     >
                       {g}
