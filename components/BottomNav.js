@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, List, Wallet, PieChart, LayoutGrid } from "lucide-react";
+import { Plus, List, Wallet, PieChart, LayoutGrid, BarChart2 } from "lucide-react";
 import { useState } from "react";
 import TransactionForm from "./TransactionForm";
 
@@ -11,7 +11,7 @@ export default function BottomNav() {
 
   const tabs = [
     { name: "Transaksi", path: "/transaksi", icon: List },
-    { name: "Anggaran", path: "/anggaran", icon: PieChart },
+    { name: "Rangkuman", path: "/rangkuman", icon: BarChart2 },
     { name: "Akun", path: "/akun", icon: Wallet },
     { name: "Hub", path: "/hub", icon: LayoutGrid },
   ];
@@ -19,14 +19,18 @@ export default function BottomNav() {
   return (
     <>
       {/* Floating Action Button (FAB) */}
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-40">
-        <button 
-          onClick={() => setIsFormOpen(true)}
-          className="bg-neutral-950 text-white p-4 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-transform"
-        >
-          <Plus size={24} />
-        </button>
-      </div>
+      {pathname.startsWith("/transaksi") && (
+        <div className="fixed bottom-24 left-0 right-0 z-40 pointer-events-none">
+          <div className="max-w-md mx-auto relative h-full">
+            <button 
+              onClick={() => setIsFormOpen(true)}
+              className="absolute right-4 bottom-0 bg-neutral-950 text-white p-4 rounded-full shadow-xl shadow-neutral-900/20 hover:scale-105 active:scale-95 transition-transform pointer-events-auto"
+            >
+              <Plus size={24} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 w-full bg-white border-t border-neutral-100 pb-safe z-30">

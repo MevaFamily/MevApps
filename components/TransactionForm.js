@@ -19,6 +19,7 @@ export default function TransactionForm({ onClose, initialData = null }) {
 
   const [showCatDropdown, setShowCatDropdown] = useState(false);
   const [showSubcatDropdown, setShowSubcatDropdown] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const catRef = useRef(null);
   const subcatRef = useRef(null);
 
@@ -165,7 +166,6 @@ export default function TransactionForm({ onClose, initialData = null }) {
 
   const handleDelete = async () => {
     if (!isEdit) return;
-    if (!confirm("Hapus transaksi ini?")) return;
 
     let affectedAccounts = {};
     const addBal = (id, amt) => { if(id) affectedAccounts[id] = (affectedAccounts[id] !== undefined ? affectedAccounts[id] : Number(accounts.find(a=>a.id===id)?.balance || 0)) + amt; }
@@ -324,7 +324,7 @@ export default function TransactionForm({ onClose, initialData = null }) {
 
           <div className="flex gap-3 pt-2">
             {isEdit && (
-              <button type="button" onClick={handleDelete} className="flex-1 bg-rose-50 text-rose-600 font-medium rounded-xl px-4 py-3.5 hover:bg-rose-100 transition-colors">
+              <button type="button" onClick={() => setShowDeleteConfirm(true)} className="flex-1 bg-rose-50 text-rose-600 font-medium rounded-xl px-4 py-3.5 hover:bg-rose-100 transition-colors">
                 Hapus
               </button>
             )}
@@ -334,6 +334,34 @@ export default function TransactionForm({ onClose, initialData = null }) {
           </div>
         </form>
       </div>
+
+      {/* Pop-up Konfirmasi Hapus */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] bg-neutral-900/40 backdrop-blur-sm flex justify-center items-center p-4">
+          <div className="bg-white rounded-3xl p-6 shadow-xl max-w-sm w-full animate-in zoom-in-95 duration-200">
+            <h3 className="text-lg font-bold text-neutral-900 mb-2">Hapus Transaksi?</h3>
+            <p className="text-sm text-neutral-500 mb-6">
+              Transaksi ini akan dihapus secara permanen dan saldo Anda akan dikembalikan seperti semula.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                type="button" 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3 bg-neutral-100 text-neutral-700 font-medium rounded-xl hover:bg-neutral-200 transition-colors"
+              >
+                Batal
+              </button>
+              <button 
+                type="button" 
+                onClick={() => { setShowDeleteConfirm(false); handleDelete(); }}
+                className="flex-1 py-3 bg-rose-500 text-white font-medium rounded-xl hover:bg-rose-600 transition-colors shadow-sm"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

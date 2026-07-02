@@ -81,11 +81,25 @@ export default function AppProvider({ children }) {
       })
       .subscribe();
 
+    const budgetChannel = supabase
+      .channel('public:budgets')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'budgets' }, payload => {
+        if (payload.eventType === 'INSERT') {
+          setBudgets(prev => [...prev, payload.new]);
+        } else if (payload.eventType === 'UPDATE') {
+          setBudgets(prev => prev.map(b => b.id === payload.new.id ? payload.new : b));
+        } else if (payload.eventType === 'DELETE') {
+          setBudgets(prev => prev.filter(b => b.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(txChannel);
       supabase.removeChannel(accChannel);
       supabase.removeChannel(catChannel);
       supabase.removeChannel(subcatChannel);
+      supabase.removeChannel(budgetChannel);
     };
   }, []);
 
