@@ -1,10 +1,11 @@
 "use client";
-import { useContext, useState } from "react";
+import { useContext, useState, useMemo } from "react";
 import { AppContext } from "@/components/AppProvider";
 import { supabase } from "@/lib/supabase";
+import { ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from "recharts";
 
 export default function AkunPage() {
-  const { accounts, setAccounts } = useContext(AppContext);
+  const { accounts, setAccounts, transactions } = useContext(AppContext);
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState(null);
   
@@ -13,6 +14,36 @@ export default function AkunPage() {
   const [balance, setBalance] = useState("");
   
   const netWorth = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
+
+  const getHistoricalNetWorth = () => {
+    let history = [];
+    let runningNetWorth = netWorth;
+    const now = new Date();
+    
+    for (let i = 0; i < 6; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const monthKey = `${year}-${month}`;
+      const monthLabel = d.toLocaleString('id-ID', { month: 'short' });
+      
+      history.unshift({ month: monthLabel, monthKey, netWorth: 0 });
+    }
+    
+    for (let i = history.length - 1; i >= 0; i--) {
+      history[i].netWorth = runningNetWorth;
+      
+      const monthTx = transactions.filter(tx => tx.date.startsWith(history[i].monthKey));
+      const income = monthTx.filter(tx => tx.type === 'pemasukan').reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const expense = monthTx.filter(tx => tx.type === 'pengeluaran').reduce((sum, tx) => sum + Number(tx.amount), 0);
+      const netFlow = income - expense;
+      
+      runningNetWorth -= netFlow;
+    }
+    return history;
+  };
+
+  const trendData = useMemo(() => getHistoricalNetWorth(), [transactions, netWorth]);
 
   const handleAmountChange = (e) => {
     let rawValue = e.target.value.replace(/[^0-9]/g, ''); 
@@ -43,7 +74,6 @@ export default function AkunPage() {
     const balanceNum = Number(balance.replace(/\./g, '')) || 0;
     
     if (editData) {
-      // Edit Mode
       const updatedAccount = { ...editData, name: name.trim(), type, balance: balanceNum };
       setAccounts(prev => prev.map(a => a.id === editData.id ? updatedAccount : a));
       setShowModal(false);
@@ -56,7 +86,6 @@ export default function AkunPage() {
         console.error(err);
       }
     } else {
-      // Add Mode
       const newId = crypto.randomUUID();
       const newAccount = { id: newId, name: name.trim(), type, balance: balanceNum, created_at: new Date().toISOString() };
       setAccounts(prev => [...prev, newAccount]);
@@ -86,13 +115,31 @@ export default function AkunPage() {
     }
   };
 
+  const groupedAccounts = accounts.reduce((acc, curr) => {
+    if (!acc[curr.type]) acc[curr.type] = [];
+    acc[curr.type].push(curr);
+    return acc;
+  }, {});
+
+  const CustomTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-neutral-900 text-white p-2 text-xs rounded-lg shadow-lg">
+          <p className="font-semibold mb-1">{payload[0].payload.month}</p>
+          <p>Rp {payload[0].value.toLocaleString('id-ID')}</p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
-    <div className="p-4 max-w-md mx-auto pt-8">
-      <div className="mb-8 flex justify-between items-start">
+    <div className="p-4 max-w-md mx-auto pt-8 pb-24">
+      <div className="mb-6 flex justify-between items-start">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Akun</h1>
           <p className="text-sm text-neutral-400">Total Kekayaan Bersih</p>
-          <h2 className="text-3xl font-bold mt-2 text-neutral-900">
+          <h2 className="text-3xl font-bold mt-1 text-neutral-900">
             Rp {netWorth.toLocaleString('id-ID')}
           </h2>
         </div>
@@ -104,26 +151,79 @@ export default function AkunPage() {
         </button>
       </div>
 
-      <div className="space-y-4">
-        {accounts.map(acc => (
-          <div 
-            key={acc.id} 
-            onClick={() => openEditModal(acc)}
-            className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-5 flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
-          >
-            <div>
-              <h3 className="font-medium text-neutral-800">{acc.name}</h3>
-              <p className="text-xs text-neutral-400">{acc.type}</p>
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-100 mb-8">
+        <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">Tren Kekayaan (6 Bulan)</h3>
+        <div className="h-40 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={trendData}>
+              <XAxis 
+                dataKey="month" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 10, fill: '#a3a3a3' }} 
+                dy={10}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#f3f4f6', strokeWidth: 2 }} />
+              <Line 
+                type="monotone" 
+                dataKey="netWorth" 
+                stroke="#10b981" 
+                strokeWidth={3} 
+                dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }}
+                activeDot={{ r: 6, fill: '#059669' }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {['Tunai', 'Bank', 'E-Wallet'].map(groupType => {
+          const groupAccs = groupedAccounts[groupType] || [];
+          if (groupAccs.length === 0) return null;
+          
+          const groupTotal = groupAccs.reduce((sum, a) => sum + Number(a.balance), 0);
+
+          return (
+            <div key={groupType}>
+              <div className="flex justify-between items-end mb-3 px-1">
+                <h3 className="font-semibold text-neutral-800">{groupType}</h3>
+                <span className="text-xs font-medium text-neutral-500">
+                  Rp {groupTotal.toLocaleString('id-ID')}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {groupAccs.map(acc => (
+                  <div 
+                    key={acc.id} 
+                    onClick={() => openEditModal(acc)}
+                    className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-4 flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-neutral-50 border border-neutral-100 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          {groupType === 'Tunai' ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                           : groupType === 'Bank' ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                           : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          }
+                        </svg>
+                      </div>
+                      <h4 className="font-medium text-neutral-900">{acc.name}</h4>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-semibold text-neutral-900 text-sm">
+                        Rp {Number(acc.balance).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="text-right">
-              <span className="font-semibold text-neutral-900">
-                Rp {Number(acc.balance).toLocaleString('id-ID')}
-              </span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
+
         {accounts.length === 0 && (
-          <div className="text-center p-8 bg-white border border-neutral-100 rounded-2xl shadow-sm mt-4">
+          <div className="text-center p-8 bg-neutral-50 border border-neutral-100 rounded-2xl mt-4">
             <p className="text-neutral-400 text-sm">Belum ada akun, silakan tambah akun baru.</p>
           </div>
         )}

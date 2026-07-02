@@ -152,18 +152,19 @@ function TransaksiContent() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-neutral-900 truncate">
+                          <p className="font-semibold text-neutral-900 truncate flex items-center gap-1.5">
                             {tx.category || (isTransfer ? "Transfer" : "Lainnya")}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-neutral-400 font-medium">{tx.account_name}</span>
                             {tx.subcategory && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-neutral-100 text-neutral-600">
-                                {tx.subcategory}
-                              </span>
+                              <>
+                                <span className="text-neutral-300">•</span>
+                                <span className="text-sm font-medium text-neutral-600 truncate">
+                                  {tx.subcategory}
+                                </span>
+                              </>
                             )}
-                          </div>
-                          {tx.notes && <p className="text-xs text-neutral-500 truncate mt-1">{tx.notes}</p>}
+                          </p>
+                          <p className="text-[11px] text-neutral-400 font-medium mt-0.5">{tx.account_name}</p>
+                          {tx.notes && <p className="text-[11px] text-neutral-400 italic truncate mt-1">{tx.notes}</p>}
                         </div>
                         <div className="text-right shrink-0">
                           <p className={`font-bold text-sm ${isPengeluaran ? 'text-rose-600' : isTransfer ? 'text-indigo-600' : 'text-emerald-600'}`}>

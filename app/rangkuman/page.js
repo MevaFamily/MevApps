@@ -11,33 +11,69 @@ export default function RangkumanPage() {
   const [activeTab, setActiveTab] = useState("pengeluaran");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [expandedCats, setExpandedCats] = useState({});
+  const [periodFilter, setPeriodFilter] = useState("Bulanan"); // Harian, Mingguan, Bulanan
   const router = useRouter();
 
-  const handlePrevMonth = () => {
+  const handlePrev = () => {
     setCurrentDate(prev => {
       const d = new Date(prev);
-      d.setMonth(d.getMonth() - 1);
+      if (periodFilter === "Harian") d.setDate(d.getDate() - 1);
+      else if (periodFilter === "Mingguan") d.setDate(d.getDate() - 7);
+      else d.setMonth(d.getMonth() - 1);
       return d;
     });
   };
 
-  const handleNextMonth = () => {
+  const handleNext = () => {
     setCurrentDate(prev => {
       const d = new Date(prev);
-      d.setMonth(d.getMonth() + 1);
+      if (periodFilter === "Harian") d.setDate(d.getDate() + 1);
+      else if (periodFilter === "Mingguan") d.setDate(d.getDate() + 7);
+      else d.setMonth(d.getMonth() + 1);
       return d;
     });
   };
 
   const year = currentDate.getFullYear();
-  const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-  const monthKey = `${year}-${month}`; // YYYY-MM
-  const currentMonthName = currentDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+  const monthStr = String(currentDate.getMonth() + 1).padStart(2, '0');
+  const dayStr = String(currentDate.getDate()).padStart(2, '0');
+  const monthKey = `${year}-${monthStr}`; // For budget lookup (always monthly)
+  const fullDateStr = `${year}-${monthStr}-${dayStr}`;
 
-  // Hitung pengeluaran per kategori bulan ini
-  const currentMonthTx = transactions.filter(
-    tx => tx.type === activeTab && tx.date.startsWith(monthKey)
-  );
+  // Helper for Weekly
+  const getStartOfWeek = (date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+    return new Date(d.setDate(diff));
+  };
+  const getEndOfWeek = (startDate) => {
+    const d = new Date(startDate);
+    d.setDate(d.getDate() + 6);
+    return d;
+  };
+
+  let displayDateStr = "";
+  let currentMonthTx = [];
+
+  if (periodFilter === "Harian") {
+    displayDateStr = currentDate.toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    currentMonthTx = transactions.filter(tx => tx.type === activeTab && tx.date === fullDateStr);
+  } else if (periodFilter === "Mingguan") {
+    const startW = getStartOfWeek(currentDate);
+    const endW = getEndOfWeek(startW);
+    const startWStr = startW.toISOString().split('T')[0];
+    const endWStr = endW.toISOString().split('T')[0];
+    displayDateStr = `${startW.getDate()} ${startW.toLocaleString('id-ID',{month:'short'})} - ${endW.getDate()} ${endW.toLocaleString('id-ID',{month:'short'})} ${endW.getFullYear()}`;
+    
+    currentMonthTx = transactions.filter(tx => {
+      if (tx.type !== activeTab) return false;
+      return tx.date >= startWStr && tx.date <= endWStr;
+    });
+  } else {
+    displayDateStr = currentDate.toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+    currentMonthTx = transactions.filter(tx => tx.type === activeTab && tx.date.startsWith(monthKey));
+  }
 
   const expensesByCategory = currentMonthTx.reduce((acc, tx) => {
     const catKey = tx.category;
@@ -148,13 +184,30 @@ export default function RangkumanPage() {
         </Link>
       </div>
 
-      {/* Month Filter */}
+      {/* Period Tabs */}
+      <div className="flex bg-neutral-100 p-1 rounded-xl mb-4">
+        {['Harian', 'Mingguan', 'Bulanan'].map(p => (
+          <button
+            key={p} type="button"
+            onClick={() => setPeriodFilter(p)}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              periodFilter === p 
+                ? 'bg-white text-neutral-900 shadow-sm'
+                : 'text-neutral-500 hover:text-neutral-900'
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+      {/* Date Filter */}
       <div className="flex items-center justify-between bg-white border border-neutral-100 rounded-2xl p-2 mb-6 shadow-sm">
-        <button onClick={handlePrevMonth} className="p-2 hover:bg-neutral-100 rounded-xl transition-colors">
+        <button onClick={handlePrev} className="p-2 hover:bg-neutral-100 rounded-xl transition-colors">
           <ChevronLeft size={20} className="text-neutral-600" />
         </button>
-        <span className="font-medium text-neutral-800 capitalize">{currentMonthName}</span>
-        <button onClick={handleNextMonth} className="p-2 hover:bg-neutral-100 rounded-xl transition-colors">
+        <span className="font-medium text-neutral-800 capitalize text-sm">{displayDateStr}</span>
+        <button onClick={handleNext} className="p-2 hover:bg-neutral-100 rounded-xl transition-colors">
           <ChevronRight size={20} className="text-neutral-600" />
         </button>
       </div>

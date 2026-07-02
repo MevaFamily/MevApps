@@ -2,6 +2,7 @@
 import { useContext, useState } from "react";
 import { AppContext } from "@/components/AppProvider";
 import { supabase } from "@/lib/supabase";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 export default function AnggaranPage() {
   const { categories, setCategories, subcategories, setSubcategories, transactions, budgets, setBudgets } = useContext(AppContext);
@@ -13,6 +14,7 @@ export default function AnggaranPage() {
   const [parentCategory, setParentCategory] = useState(null);
   const [inputValue, setInputValue] = useState("");
   const [budgetLimitStr, setBudgetLimitStr] = useState("");
+  const [expandedCats, setExpandedCats] = useState({});
 
   const filteredCategories = categories.filter(c => c.type === activeTab);
 
@@ -178,6 +180,20 @@ export default function AnggaranPage() {
     closeModal();
   };
 
+  const toggleExpand = (catId) => {
+    setExpandedCats(prev => ({ ...prev, [catId]: !prev[catId] }));
+  };
+
+  const expandAll = () => {
+    const all = {};
+    filteredCategories.forEach(c => all[c.id] = true);
+    setExpandedCats(all);
+  };
+
+  const collapseAll = () => {
+    setExpandedCats({});
+  };
+
   const renderProgressBar = (spent, limit) => {
     if (limit <= 0) return null;
     const percentage = Math.min((spent / limit) * 100, 100);
@@ -235,14 +251,18 @@ export default function AnggaranPage() {
         <p className="text-2xl font-bold text-neutral-900 mb-1">
           Rp {totalBulanIniLimit.toLocaleString('id-ID')}
         </p>
-        <p className="text-xs text-neutral-500">
-          Terpakai: <span className="font-semibold text-neutral-800">Rp {totalBulanIniSpentAccurate.toLocaleString('id-ID')}</span> 
-          {totalBulanIniLimit > 0 && ` (${((totalBulanIniSpentAccurate / totalBulanIniLimit) * 100).toFixed(1)}%)`}
-        </p>
         {renderProgressBar(totalBulanIniSpentAccurate, totalBulanIniLimit)}
       </div>
 
       <div className="space-y-4">
+        <div className="flex justify-between items-center mb-2 px-1">
+          <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Daftar Kategori</h2>
+          <div className="flex gap-2">
+            <button onClick={expandAll} className="text-[10px] font-medium text-neutral-500 hover:text-neutral-900">Buka Semua</button>
+            <span className="text-neutral-300">|</span>
+            <button onClick={collapseAll} className="text-[10px] font-medium text-neutral-500 hover:text-neutral-900">Tutup Semua</button>
+          </div>
+        </div>
         {filteredCategories.map(cat => {
           const subs = subcategories.filter(sc => sc.category_id === cat.id);
           const catSpent = expensesByCategory[cat.name] || 0;
@@ -258,29 +278,47 @@ export default function AnggaranPage() {
             });
           }
 
+          const isExpanded = expandedCats[cat.id];
+
           return (
             <div key={cat.id} className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-4">
               <div className="flex justify-between items-start mb-1">
                 <div 
-                  className="flex-1 cursor-pointer hover:opacity-80"
-                  onClick={() => openEditCategory(cat, subs)}
+                  className={`flex-1 flex items-center gap-2 ${subs.length > 0 ? 'cursor-pointer hover:opacity-80' : ''}`}
+                  onClick={() => subs.length > 0 ? toggleExpand(cat.id) : openEditCategory(cat, subs)}
                 >
                   <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
                     {cat.name}
-                    <svg className="w-3.5 h-3.5 text-neutral-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </h3>
+                  {subs.length === 0 && (
+                    <button onClick={(e) => { e.stopPropagation(); openEditCategory(cat, subs); }} className="text-neutral-400 hover:text-neutral-900 p-1">
+                      <svg className="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    </button>
+                  )}
+                  {subs.length > 0 && (
+                    <span className="text-neutral-400 ml-1">
+                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    </span>
+                  )}
                 </div>
-                <button 
-                  onClick={() => openAddSubcategory(cat)}
-                  className="text-[10px] font-semibold text-neutral-500 hover:text-neutral-900 px-2 py-1 bg-neutral-50 rounded border border-neutral-200"
-                >
-                  + SUB
-                </button>
+                <div className="flex gap-2">
+                  {subs.length > 0 && (
+                    <button onClick={(e) => { e.stopPropagation(); openEditCategory(cat, subs); }} className="text-[10px] font-semibold text-neutral-500 hover:text-neutral-900 px-2 py-1 bg-neutral-50 rounded border border-neutral-200">
+                      EDIT
+                    </button>
+                  )}
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); openAddSubcategory(cat); }}
+                    className="text-[10px] font-semibold text-neutral-500 hover:text-neutral-900 px-2 py-1 bg-neutral-50 rounded border border-neutral-200"
+                  >
+                    + SUB
+                  </button>
+                </div>
               </div>
 
               {activeTab === 'pengeluaran' && renderProgressBar(catSpent, catLimit)}
 
-              {subs.length > 0 && (
+              {subs.length > 0 && isExpanded && (
                 <div className="flex flex-col gap-2 mt-4">
                   {subs.map(sub => {
                     const subSpent = expensesByCategory[sub.name] || 0;
