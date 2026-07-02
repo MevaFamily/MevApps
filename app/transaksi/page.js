@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
 
 function TransaksiContent() {
-  const { transactions } = useContext(AppContext);
+  const { transactions, accounts } = useContext(AppContext);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -132,6 +132,10 @@ function TransaksiContent() {
                 {txs.map((tx, idx) => {
                   const isTransfer = tx.type === 'transfer';
                   const isPengeluaran = tx.type === 'pengeluaran';
+                  const destAcc = isTransfer ? accounts.find(a => a.id === tx.destination_account_id) : null;
+                  const accountInfoText = isTransfer 
+                    ? `${tx.account_name} → ${destAcc ? destAcc.name : 'Tujuan'}`
+                    : tx.account_name;
                   
                   return (
                     <div 
@@ -163,8 +167,8 @@ function TransaksiContent() {
                               </>
                             )}
                           </p>
-                          <p className="text-[11px] text-neutral-400 font-medium mt-0.5">{tx.account_name}</p>
-                          {tx.notes && <p className="text-[11px] text-neutral-400 italic truncate mt-1">{tx.notes}</p>}
+                          <p className="text-[11px] text-neutral-400 font-medium mt-0.5">{accountInfoText}</p>
+                          {tx.note && <p className="text-[11px] text-neutral-400 italic truncate mt-1">{tx.note}</p>}
                         </div>
                         <div className="text-right shrink-0">
                           <p className={`font-bold text-sm ${isPengeluaran ? 'text-rose-600' : isTransfer ? 'text-indigo-600' : 'text-emerald-600'}`}>
