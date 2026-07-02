@@ -33,7 +33,11 @@ export default function LoginPage() {
     e.preventDefault();
     setErrorMsg("");
     
-    const emailTrimmed = email.trim();
+    let emailTrimmed = email.trim();
+    if (emailTrimmed && !emailTrimmed.includes("@")) {
+      emailTrimmed = `${emailTrimmed}@meva.com`;
+    }
+
     setLoadingLogin(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -74,14 +78,14 @@ export default function LoginPage() {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Email</label>
+            <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Username / Email</label>
             <input
-              type="email"
+              type="text"
               required
               className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3.5 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200 transition-all text-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="nama@email.com"
+              placeholder="ivan atau ivan@meva.com"
             />
           </div>
 
