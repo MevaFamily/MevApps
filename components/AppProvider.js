@@ -11,8 +11,40 @@ export default function AppProvider({ children }) {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState(null);
 
   useEffect(() => {
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (!session) {
+        setLoading(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) {
+        // Reset states on logout
+        setAccounts([]);
+        setTransactions([]);
+        setBudgets([]);
+        setCategories([]);
+        setSubcategories([]);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    
+    setLoading(true);
+
     // Initial Fetch (Single Fetch Pattern)
     async function fetchData() {
       try {
@@ -43,11 +75,9 @@ export default function AppProvider({ children }) {
       .channel('public:transactions')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, payload => {
         if (payload.eventType === 'INSERT') {
-          // Hanya tambahkan jika tidak ada ID yang sama (menghindari duplikasi dari optimistic update)
           setTransactions(prev => {
             const exists = prev.find(t => t.id === payload.new.id);
             if (exists) return prev;
-            // Jika optimistic update menggunakan UUID asli dari client, ini jarang conflict
             return [payload.new, ...prev.filter(t => typeof t.id !== 'string' || !t.id.startsWith('temp-'))];
           });
         }
@@ -101,10 +131,11 @@ export default function AppProvider({ children }) {
       supabase.removeChannel(subcatChannel);
       supabase.removeChannel(budgetChannel);
     };
-  }, []);
+  }, [session]);
 
   return (
     <AppContext.Provider value={{
+      session,
       accounts, setAccounts,
       transactions, setTransactions,
       budgets, setBudgets,

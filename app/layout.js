@@ -2,6 +2,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/BottomNav";
 import AppProvider from "@/components/AppProvider";
+import AuthGuard from "@/components/AuthGuard";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -24,10 +25,12 @@ export default function RootLayout({ children }) {
     <html lang="id">
       <body className={`${inter.className} bg-neutral-50 text-neutral-900 antialiased h-[100dvh] flex flex-col overflow-hidden`}>
         <AppProvider>
-          <main className="flex-1 overflow-y-auto pb-24 touch-pan-y">
-            {children}
-          </main>
-          <BottomNav />
+          <AuthGuard>
+            <main className="flex-1 overflow-y-auto pb-24 touch-pan-y">
+              {children}
+            </main>
+            <BottomNav />
+          </AuthGuard>
         </AppProvider>
       </body>
     </html>

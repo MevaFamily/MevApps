@@ -9,6 +9,8 @@ export default function BottomNav() {
   const pathname = usePathname();
   const [isFormOpen, setIsFormOpen] = useState(false);
 
+  if (pathname === "/login") return null;
+
   const tabs = [
     { name: "Transaksi", path: "/transaksi", icon: List },
     { name: "Rangkuman", path: "/rangkuman", icon: BarChart2 },
