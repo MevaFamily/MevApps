@@ -3,10 +3,13 @@ import { useState, useContext, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { AppContext } from "@/components/AppProvider";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [loadingLogin, setLoadingLogin] = useState(false);
   const router = useRouter();
@@ -18,16 +21,19 @@ export default function LoginPage() {
     }
   }, [session, router]);
 
+  useEffect(() => {
+    const savedEmail = localStorage.getItem("mevapps_remembered_email");
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setErrorMsg("");
     
     const emailTrimmed = email.trim();
-    if (!emailTrimmed.endsWith("@meva.com")) {
-      setErrorMsg("Akses ditolak. Email harus menggunakan domain @meva.com");
-      return;
-    }
-
     setLoadingLogin(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -37,6 +43,11 @@ export default function LoginPage() {
       if (error) {
         setErrorMsg("Email atau password salah.");
       } else {
+        if (rememberMe) {
+          localStorage.setItem("mevapps_remembered_email", emailTrimmed);
+        } else {
+          localStorage.removeItem("mevapps_remembered_email");
+        }
         router.replace("/transaksi");
       }
     } catch (err) {
@@ -70,26 +81,47 @@ export default function LoginPage() {
               className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3.5 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200 transition-all text-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="nama@meva.com"
+              placeholder="nama@email.com"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Password</label>
-            <input
-              type="password"
-              required
-              className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3.5 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200 transition-all text-sm"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                className="w-full bg-neutral-50 border border-neutral-100 rounded-xl pl-4 pr-12 py-3.5 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200 transition-all text-sm"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 p-1"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pb-2">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="w-4 h-4 rounded border-neutral-200 text-neutral-900 focus:ring-neutral-900 accent-neutral-900"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
+              <span className="text-xs text-neutral-500 font-medium">Ingat Saya</span>
+            </label>
           </div>
 
           <button
             type="submit"
             disabled={loadingLogin}
-            className="w-full bg-neutral-950 text-white font-semibold rounded-xl py-4 hover:bg-neutral-800 transition-colors mt-2 text-sm flex justify-center items-center gap-2 disabled:opacity-75"
+            className="w-full bg-neutral-950 text-white font-semibold rounded-xl py-4 hover:bg-neutral-800 transition-colors text-sm flex justify-center items-center gap-2 disabled:opacity-75"
           >
             {loadingLogin ? (
               <>

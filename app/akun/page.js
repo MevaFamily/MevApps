@@ -116,12 +116,6 @@ export default function AkunPage() {
     }
   };
 
-  const handleLogout = async () => {
-    if (confirm("Apakah Anda yakin ingin keluar dari aplikasi?")) {
-      await supabase.auth.signOut();
-    }
-  };
-
   const handleDelete = async () => {
     if (!editData) return;
     if (!confirm("Hapus akun ini secara permanen?")) return;
@@ -200,23 +194,12 @@ export default function AkunPage() {
             Rp {netWorth.toLocaleString('id-ID')}
           </h2>
         </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={handleLogout}
-            className="bg-neutral-100 text-neutral-500 rounded-full w-10 h-10 flex items-center justify-center hover:bg-neutral-200 transition-colors shadow-sm"
-            title="Keluar"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </button>
-          <button 
-            onClick={openAddModal}
-            className="bg-neutral-900 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl hover:bg-neutral-800 transition-colors shadow-sm"
-          >
-            +
-          </button>
-        </div>
+        <button 
+          onClick={openAddModal}
+          className="bg-neutral-900 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl hover:bg-neutral-800 transition-colors shadow-sm"
+        >
+          +
+        </button>
       </div>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-100 mb-8">
