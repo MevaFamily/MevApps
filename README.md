@@ -2,14 +2,30 @@
 
 MevApps adalah sebuah ekosistem aplikasi keuangan dan manajemen rumah (Super-App) modern berbasis **Progressive Web App (PWA)**. Aplikasi ini dirancang dengan antarmuka yang sangat minimalis, modern (*clean design*), serta memprioritaskan arsitektur data *real-time* yang cepat dan responsif.
 
+---
+
 ## 🚀 Fitur Utama
 
+- **Autentikasi Supabase & Proteksi Rute**: Mengamankan data rumah tangga dengan **Supabase Auth**. Dilengkapi dengan halaman login modern, fitur "Ingat Saya" (*Remember Me*), ikon mata intip kata sandi, serta pengisian otomatis domain `@meva.com` (cukup ketik *username* Anda).
 - **Pencatatan Keuangan Terintegrasi**: Mengelola *Pemasukan*, *Pengeluaran*, dan *Transfer* antar dompet/akun dengan antarmuka formulir yang elegan dan *smart auto-close*.
-- **Manajemen Anggaran (Budgeting) Hierarkis**: Tetapkan batas anggaran untuk Kategori utama atau rincikan lebih dalam pada level Sub-Kategori. Sistem akan otomatis mengakumulasi limit Kategori berdasarkan Sub-Kategori di dalamnya.
-- **Rangkuman & Analitik (Drill-down)**: Visualisasi proporsi pengeluaran dengan *Pie Chart* interaktif. Dilengkapi bilah progres (Progress Bar) yang memberi indikator warna cerdas jika budget melebihi kapasitas (hingga >100%).
-- **Filter Dinamis Lintas Halaman**: Satu ketukan pada Sub-Kategori di halaman Rangkuman akan mengarahkan Anda ke daftar Transaksi yang sudah terfilter secara presisi sesuai Bulan dan Nama Sub-Kategori.
-- **Manajemen Akun/Dompet**: Pantau saldo berbagai rekening bank, e-wallet, atau uang tunai Anda secara *real-time* dengan sinkronisasi akurat.
-- **PWA Ready**: Dapat diinstal sebagai aplikasi native di iOS, Android, maupun Desktop (Windows/Mac) tanpa perlu masuk ke App Store / Play Store.
+- **Rincian Transaksi Dinamis**:
+  - Tampilan kartu riwayat menyandingkan Kategori & Sub-Kategori dalam baris yang sama (`Kategori • Sub-Kategori`).
+  - Menampilkan catatan transaksi (*notes*) di bagian bawah kartu secara elegan.
+  - Untuk transaksi tipe *Transfer*, secara otomatis mendeteksi dan menampilkan alur akun pengirim ke penerima (`Dompet Asal → Dompet Tujuan`).
+  - Kartu ringkasan bulanan menyajikan info sisa anggaran (*Sisa budget*) atau kelebihan anggaran (*Over budget*) beserta persentasenya secara cerdas.
+- **Kelompok Akun Kustom & Warna Indikator Saldo**: 
+  - Akun keuangan dapat dikelompokkan berdasarkan nama kelompok kustom yang Anda buat sendiri (contoh: *Uang Ivan*, *Uang Melin*, *Tabungan Bersama*).
+  - Total saldo per kelompok disorot dengan *pill badge* minimalis yang menonjol.
+  - Nilai nominal saldo diwarnai secara otomatis (Hijau 🟢 untuk saldo positif, Merah 🔴 untuk saldo negatif/hutang).
+  - Grafik garis (*Line Chart*) interaktif menampilkan tren kekayaan bersih (*Net Worth*) keluarga Anda selama 6 bulan terakhir.
+- **Manajemen Anggaran (Budgeting) Hierarkis & Akordeon**: 
+  - Tetapkan batas anggaran untuk Kategori utama atau rincikan lebih dalam pada level Sub-Kategori.
+  - Tampilan kategori budget dapat ditutup-buka (*accordion*) dengan opsi kontrol global: **Buka Semua | Tutup Semua** untuk kebersihan layar.
+- **Rangkuman Multi-Periode & Analitik (Drill-down)**: 
+  - Menyediakan filter waktu dinamis: **Harian**, **Mingguan**, dan **Bulanan** dengan navigasi tanggal yang responsif.
+  - Visualisasi proporsi pengeluaran dengan *Pie Chart* interaktif.
+  - Satu ketukan pada Sub-Kategori di halaman Rangkuman akan mengarahkan Anda ke daftar Transaksi yang sudah terfilter secara presisi sesuai Periode dan Sub-Kategori yang bersangkutan.
+- **PWA Ready**: Dapat diinstal sebagai aplikasi native di iOS, Android, maupun Desktop (Windows/Mac) langsung dari browser Anda.
 
 ---
 
@@ -20,7 +36,8 @@ Aplikasi ini dibangun di atas pondasi arsitektur **Jamstack** modern:
 - **Frontend / UI**: React.js dengan [Tailwind CSS](https://tailwindcss.com/) (Desain token kustom dan utilitas modern)
 - **Database / Backend**: [Supabase](https://supabase.com/) (PostgreSQL-as-a-Service)
 - **State Management & Realtime**: React Context API (`AppProvider`) dipadukan dengan *Supabase Realtime Channel Subscription* untuk sinkronisasi seketika antar perangkat.
-- **Data Visualization**: [Recharts](https://recharts.org/) (Untuk visualisasi grafik yang responsif)
+- **Security / Routing Guard**: Komponen `AuthGuard` klien memvalidasi status autentikasi di tingkat *layout* induk.
+- **Data Visualization**: [Recharts](https://recharts.org/) (Untuk visualisasi grafik pie dan grafik garis yang responsif)
 - **Icons**: [Lucide React](https://lucide.dev/)
 - **PWA Module**: `next-pwa`
 
@@ -33,19 +50,22 @@ Aplikasi ini menggunakan 5 tabel utama yang saling berelasi dengan tipe data UUI
 1. **`accounts`** (Akun / Dompet Utama)
    - `id` (UUID, Primary Key)
    - `name` (String: Nama Akun, misal: "BCA", "Gopay")
-   - `type` (String: Tipe akun)
+   - `type` (String: Kelompok akun kustom, misal: "Uang Ivan", "Tabungan")
    - `balance` (Numeric: Saldo saat ini, otomatis terupdate via sinkronisasi klien)
+   - `created_at` (Timestamp)
 
 2. **`transactions`** (Data Arus Kas)
    - `id` (UUID, Primary Key)
    - `date` (String YYYY-MM-DD: Waktu transaksi)
    - `account_id` (UUID: Relasi ke `accounts`)
-   - `account_name` (String: Snapshot nama akun)
+   - `account_name` (String: Snapshot nama akun asal)
+   - `destination_account_id` (UUID: Relasi ke `accounts` untuk transfer akun tujuan)
    - `type` (String: `pemasukan` / `pengeluaran` / `transfer`)
    - `amount` (Numeric: Nominal)
    - `category` (String: Nama kategori induk)
    - `subcategory` (String: Nama sub-kategori)
-   - `notes` (String: Catatan opsional)
+   - `note` (String: Catatan opsional)
+   - `created_at` (Timestamp)
 
 3. **`categories`** (Kategori Transaksi)
    - `id` (UUID, Primary Key)
@@ -70,18 +90,20 @@ Aplikasi ini menggunakan 5 tabel utama yang saling berelasi dengan tipe data UUI
 ```text
 MevApps/
 ├── app/
-│   ├── akun/           # Halaman Manajemen Akun & Saldo
-│   ├── anggaran/       # Halaman Setup Budget & Kategori/Sub
-│   ├── hub/            # Halaman Portal Utama Masa Depan
-│   ├── rangkuman/      # Halaman Analitik & Pie Chart
+│   ├── akun/           # Halaman Manajemen Akun & Tren Kekayaan
+│   ├── anggaran/       # Halaman Setup Budget & Kategori Akordeon
+│   ├── hub/            # Halaman Portal Utama & Tombol Logout
+│   ├── login/          # Halaman Login Autocomplete Domain
+│   ├── rangkuman/      # Halaman Analitik Harian/Mingguan/Bulanan
 │   ├── transaksi/      # Halaman List & Riwayat Transaksi
 │   ├── globals.css     # CSS Utama (Tailwind Setup)
-│   ├── layout.js       # Layout PWA Inti & Metadata
+│   ├── layout.js       # Layout PWA Inti & AuthGuard Wrapper
 │   └── page.js         # Landing Page / Index Redirector
 ├── components/
 │   ├── AppProvider.js  # Jantung Aplikasi (Context, Realtime, Global State)
+│   ├── AuthGuard.js    # Proteksi Rute & Redireksi Otomatis Klien
 │   ├── BottomNav.js    # Komponen Navigasi Bawah
-│   └── TransactionForm.js # Form Modal (Tambah/Edit) Transaksi (Floating)
+│   └── TransactionForm.js # Form Modal (Tambah/Edit) Transaksi
 ├── lib/
 │   └── supabase.js     # Inisialisasi Klien Database Supabase
 ├── public/
@@ -89,18 +111,19 @@ MevApps/
 │   └── icons/          # Berisi Icon Aplikasi (192x192, 512x512)
 ├── .env.local          # Environment Variables (Supabase Keys) - Tidak masuk ke Github
 ├── next.config.mjs     # Konfigurasi Next.js & next-pwa
-└── package.json        # Depedency & Scripts
+└── package.json        # Dependency & Scripts
 ```
 
 ---
 
 ## ⚙️ Sistem Aplikasi (Alur Logika)
 
-1. **Bootstraping & Data Hydration**: Saat aplikasi dimuat, `AppProvider` menarik (*fetch*) seluruh isi dari ke-5 tabel Supabase. 
-2. **Real-time Live Sync**: `AppProvider` memasang *listener* (`supabase.channel`). Jika Anda menambahkan transaksi di HP, layar laptop yang sedang membuka aplikasi yang sama akan langsung ter-update dalam hitungan milidetik tanpa perlu *refresh*.
-3. **Smart Balances**: Nilai saldo pada `accounts` di-sinkronisasikan secara seimbang setiap kali Anda menyimpan atau menghapus transaksi melalui `TransactionForm.js`. Jika `pemasukan` dihapus, saldo akan berkurang, dan sebaliknya.
-4. **Hierarchical Budgets**: Kalkulasi budget di halaman `Anggaran` dan `Rangkuman` menelusuri ke bawah (*drill-down*). Jika Kategori memiliki Sub-Kategori, perhitungan Budget akan dimatikan di level atas dan ditarik langsung (di-sum) dari limit per sub-kategori. Ini menghindari duplikasi anggaran ganda.
-5. **Month Filtering**: Memiliki mekanisme pencarian (`monthKey`) yang selaras antara halaman `Rangkuman` dan `Transaksi`, yang di-*parsing* dengan zona waktu lokal (Local Time) untuk memitigasi kegagalan pemfilteran akibat UTC offset (seperti +07:00).
+1. **Autentikasi & Proteksi Rute**: Aplikasi memuat `AppProvider` untuk memeriksa sesi Supabase Auth. Jika status belum terautentikasi, `AuthGuard` membekukan halaman dan mengarahkan klien secara langsung ke halaman `/login`.
+2. **Bootstraping & Data Hydration**: Begitu sesi pengguna terdeteksi valid, `AppProvider` melakukan fetch data pada seluruh tabel PostgreSQL Supabase secara paralel.
+3. **Real-time Live Sync**: `AppProvider` memasang *listener* (`supabase.channel`). Jika Anda menambahkan transaksi di HP, layar laptop yang sedang membuka aplikasi yang sama akan langsung ter-update dalam hitungan milidetik secara asinkron.
+4. **Smart Balances & Kelompok**: Transaksi baru secara dinamis memperbarui saldo dompet di tabel `accounts`. Saldo dipetakan dan dikelompokkan secara kustom dengan warna tanda positif/negatif.
+5. **Hierarchical Budgets**: Kalkulasi budget menelusuri ke bawah (*drill-down*). Jika Kategori memiliki Sub-Kategori, perhitungan Budget atas dinonaktifkan dan ditarik langsung (di-sum) dari limit per sub-kategori. Ini menghindari duplikasi anggaran ganda.
+6. **Timezone-Safe Filter**: Memiliki mekanisme pencarian tanggal (`YYYY-MM-DD`, rentang minggu, dan `YYYY-MM`) yang selaras antara halaman `Rangkuman` dan `Transaksi` dengan mitigasi offset UTC (+07:00).
 
 ---
 
