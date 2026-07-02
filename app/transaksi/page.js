@@ -79,6 +79,9 @@ function TransaksiContent() {
   });
 
   const budgetPercentage = totalBudgetLimit > 0 ? (overallMonthlyExpense / totalBudgetLimit) * 100 : 0;
+  const budgetDiff = totalBudgetLimit - overallMonthlyExpense;
+  const isOverBudget = budgetDiff < 0;
+  const absDiff = Math.abs(budgetDiff);
 
   // Group by date
   const groupedTransactions = filteredTx.reduce((acc, tx) => {
@@ -132,7 +135,11 @@ function TransaksiContent() {
           </p>
           {totalBudgetLimit > 0 && (
             <p className="text-[10px] text-neutral-500 font-medium">
-              Terpakai <span className="font-semibold text-rose-500">{budgetPercentage.toFixed(0)}%</span> dari total budget Rp {totalBudgetLimit.toLocaleString('id-ID')}
+              {isOverBudget ? (
+                <>Over budget: <span className="font-semibold text-rose-500">Rp {absDiff.toLocaleString('id-ID')}</span> ({budgetPercentage.toFixed(0)}%)</>
+              ) : (
+                <>Sisa budget: <span className="font-semibold text-emerald-500">Rp {absDiff.toLocaleString('id-ID')}</span> ({budgetPercentage.toFixed(0)}%)</>
+              )}
             </p>
           )}
         </div>
