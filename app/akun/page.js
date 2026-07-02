@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 export default function AkunPage() {
   const { accounts, setAccounts } = useContext(AppContext);
   const [showModal, setShowModal] = useState(false);
+  const [editData, setEditData] = useState(null);
   
   const [name, setName] = useState("");
   const [type, setType] = useState("Tunai"); // Tunai | Bank | E-Wallet
@@ -19,36 +20,67 @@ export default function AkunPage() {
     else setBalance("");
   };
 
-  const handleAddAccount = async (e) => {
+  const openAddModal = () => {
+    setEditData(null);
+    setName("");
+    setType("Tunai");
+    setBalance("");
+    setShowModal(true);
+  };
+
+  const openEditModal = (acc) => {
+    setEditData(acc);
+    setName(acc.name);
+    setType(acc.type);
+    setBalance(Number(acc.balance).toLocaleString('id-ID'));
+    setShowModal(true);
+  };
+
+  const handleSaveAccount = async (e) => {
     e.preventDefault();
     if (!name.trim()) return alert("Nama akun tidak boleh kosong.");
     
     const balanceNum = Number(balance.replace(/\./g, '')) || 0;
     
-    const tempId = 'temp-' + Date.now();
-    const newAccount = {
-      id: tempId,
-      name: name.trim(),
-      type,
-      balance: balanceNum,
-      created_at: new Date().toISOString()
-    };
+    if (editData) {
+      // Edit Mode
+      const updatedAccount = { ...editData, name: name.trim(), type, balance: balanceNum };
+      setAccounts(prev => prev.map(a => a.id === editData.id ? updatedAccount : a));
+      setShowModal(false);
 
-    // Optimistic Update
-    setAccounts(prev => [...prev, newAccount]);
+      try {
+        await supabase.from('accounts').update({
+          name: updatedAccount.name, type: updatedAccount.type, balance: updatedAccount.balance
+        }).eq('id', editData.id);
+      } catch(err) {
+        console.error(err);
+      }
+    } else {
+      // Add Mode
+      const newId = crypto.randomUUID();
+      const newAccount = { id: newId, name: name.trim(), type, balance: balanceNum, created_at: new Date().toISOString() };
+      setAccounts(prev => [...prev, newAccount]);
+      setShowModal(false);
+
+      try {
+        await supabase.from('accounts').insert([{
+          id: newAccount.id, name: newAccount.name, type: newAccount.type, balance: newAccount.balance
+        }]);
+      } catch(err) {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!editData) return;
+    if (!confirm("Hapus akun ini secara permanen?")) return;
+
+    setAccounts(prev => prev.filter(a => a.id !== editData.id));
     setShowModal(false);
-    setName("");
-    setType("Tunai");
-    setBalance("");
 
-    // Sync to DB
     try {
-      const { error } = await supabase.from('accounts').insert([{
-        name: newAccount.name,
-        type: newAccount.type,
-        balance: newAccount.balance
-      }]);
-      if (error) throw error;
+      await supabase.from('accounts').delete().eq('id', editData.id);
     } catch(err) {
       console.error(err);
     }
@@ -65,7 +97,7 @@ export default function AkunPage() {
           </h2>
         </div>
         <button 
-          onClick={() => setShowModal(true)}
+          onClick={openAddModal}
           className="bg-neutral-900 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl hover:bg-neutral-800 transition-colors shadow-sm"
         >
           +
@@ -74,7 +106,11 @@ export default function AkunPage() {
 
       <div className="space-y-4">
         {accounts.map(acc => (
-          <div key={acc.id} className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-5 flex justify-between items-center">
+          <div 
+            key={acc.id} 
+            onClick={() => openEditModal(acc)}
+            className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-5 flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
+          >
             <div>
               <h3 className="font-medium text-neutral-800">{acc.name}</h3>
               <p className="text-xs text-neutral-400">{acc.type}</p>
@@ -93,16 +129,22 @@ export default function AkunPage() {
         )}
       </div>
 
-      {/* Modal Tambah Akun */}
+      {/* Modal Form Akun */}
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-sm flex justify-center items-end sm:items-center">
-          <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-xl animate-in slide-in-from-bottom duration-300">
+        <div 
+          className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-sm flex justify-center items-end sm:items-center"
+          onClick={() => setShowModal(false)}
+        >
+          <div 
+            className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-xl animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-center mb-5">
-              <h2 className="text-lg font-semibold text-neutral-900">Tambah Akun Baru</h2>
+              <h2 className="text-lg font-semibold text-neutral-900">{editData ? 'Detail Akun' : 'Tambah Akun Baru'}</h2>
               <button onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-900 p-2">✕</button>
             </div>
             
-            <form onSubmit={handleAddAccount} className="space-y-4 pb-4">
+            <form onSubmit={handleSaveAccount} className="space-y-4 pb-4">
               <div>
                 <label className="block text-xs font-medium text-neutral-400 mb-1">Nama Akun</label>
                 <input 
@@ -129,7 +171,7 @@ export default function AkunPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-neutral-400 mb-1">Saldo Awal (Rp)</label>
+                <label className="block text-xs font-medium text-neutral-400 mb-1">Saldo Tersedia (Rp)</label>
                 <input 
                   type="text" inputMode="numeric"
                   className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-2xl font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
@@ -138,9 +180,16 @@ export default function AkunPage() {
                 />
               </div>
 
-              <button type="submit" className="w-full mt-4 bg-neutral-950 text-white font-medium rounded-xl px-4 py-3.5 hover:bg-neutral-800 transition-colors">
-                Simpan Akun
-              </button>
+              <div className="flex gap-3 pt-2">
+                {editData && (
+                  <button type="button" onClick={handleDelete} className="flex-1 bg-rose-50 text-rose-600 font-medium rounded-xl px-4 py-3.5 hover:bg-rose-100 transition-colors">
+                    Hapus
+                  </button>
+                )}
+                <button type="submit" className={`${editData ? 'flex-[2]' : 'w-full'} bg-neutral-950 text-white font-medium rounded-xl px-4 py-3.5 hover:bg-neutral-800 transition-colors`}>
+                  Simpan Akun
+                </button>
+              </div>
             </form>
           </div>
         </div>
