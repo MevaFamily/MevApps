@@ -10,7 +10,7 @@ export default function AkunPage() {
   const [editData, setEditData] = useState(null);
   
   const [name, setName] = useState("");
-  const [type, setType] = useState("Tunai"); // Tunai | Bank | E-Wallet
+  const [type, setType] = useState("Umum"); // Repurposed as custom Group Name
   const [balance, setBalance] = useState("");
   
   const netWorth = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
@@ -54,7 +54,7 @@ export default function AkunPage() {
   const openAddModal = () => {
     setEditData(null);
     setName("");
-    setType("Tunai");
+    setType("Umum");
     setBalance("");
     setShowModal(true);
   };
@@ -115,11 +115,47 @@ export default function AkunPage() {
     }
   };
 
-  const groupedAccounts = accounts.reduce((acc, curr) => {
-    if (!acc[curr.type]) acc[curr.type] = [];
-    acc[curr.type].push(curr);
-    return acc;
-  }, {});
+  const groupedAccounts = useMemo(() => {
+    return accounts.reduce((acc, curr) => {
+      const gName = curr.type?.trim() || "Lainnya";
+      if (!acc[gName]) acc[gName] = [];
+      acc[gName].push(curr);
+      return acc;
+    }, {});
+  }, [accounts]);
+
+  const existingGroups = useMemo(() => {
+    const groups = Object.keys(groupedAccounts);
+    // Suggest some default ones if nothing is in DB
+    if (groups.length === 0 || (groups.length === 1 && groups[0] === "Lainnya")) {
+      return ["Uang Pribadi", "Tabungan", "Uang Istri"];
+    }
+    return groups;
+  }, [groupedAccounts]);
+
+  const getAccountIcon = (acc) => {
+    const nameLower = acc.name.toLowerCase();
+    const typeLower = (acc.type || "").toLowerCase();
+    if (nameLower.includes('tunai') || nameLower.includes('cash') || typeLower.includes('tunai') || typeLower.includes('cash')) {
+      return (
+        <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      );
+    }
+    if (nameLower.includes('gopay') || nameLower.includes('ovo') || nameLower.includes('dana') || nameLower.includes('wallet') || nameLower.includes('shopeepay') || nameLower.includes('linkaja') || typeLower.includes('wallet') || typeLower.includes('ewallet')) {
+      return (
+        <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+      );
+    }
+    return (
+      <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+      </svg>
+    );
+  };
 
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
@@ -178,7 +214,7 @@ export default function AkunPage() {
       </div>
 
       <div className="space-y-6">
-        {['Tunai', 'Bank', 'E-Wallet'].map(groupType => {
+        {existingGroups.sort((a, b) => a.localeCompare(b)).map(groupType => {
           const groupAccs = groupedAccounts[groupType] || [];
           if (groupAccs.length === 0) return null;
           
@@ -201,12 +237,7 @@ export default function AkunPage() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-neutral-50 border border-neutral-100 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          {groupType === 'Tunai' ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                           : groupType === 'Bank' ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                           : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                          }
-                        </svg>
+                        {getAccountIcon(acc)}
                       </div>
                       <h4 className="font-medium text-neutral-900">{acc.name}</h4>
                     </div>
@@ -256,15 +287,27 @@ export default function AkunPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-neutral-400 mb-1">Jenis Akun</label>
-                <div className="flex gap-2">
-                  {['Tunai', 'Bank', 'E-Wallet'].map(t => (
-                    <button key={t} type="button" onClick={() => setType(t)}
-                      className={`flex-1 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                        type === t ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-600 border-neutral-200'
+                <label className="block text-xs font-medium text-neutral-400 mb-1">Kelompok Akun</label>
+                <input 
+                  type="text" required
+                  list="group-options"
+                  className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                  value={type} onChange={(e) => setType(e.target.value)}
+                  placeholder="Misal: Uang Ivan, Uang Melin, Tabungan"
+                />
+                <datalist id="group-options">
+                  {existingGroups.map(g => (
+                    <option key={g} value={g} />
+                  ))}
+                </datalist>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {existingGroups.filter(g => g !== "Lainnya").map(g => (
+                    <button key={g} type="button" onClick={() => setType(g)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
+                        type === g ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-neutral-50 text-neutral-600 border-neutral-200'
                       }`}
                     >
-                      {t}
+                      {g}
                     </button>
                   ))}
                 </div>
