@@ -87,19 +87,21 @@ export default function RangkumanPage() {
 
   const renderProgressBar = (spent, limit) => {
     if (limit <= 0) return null;
-    const percentage = Math.min((spent / limit) * 100, 100);
+    const percentage = (spent / limit) * 100;
     const isWarning = percentage >= 80;
     const isDanger = percentage >= 100;
     return (
       <div className="w-full mt-2">
         <div className="flex justify-between text-[10px] font-medium mb-1">
           <span className="text-neutral-400">Terpakai: Rp {spent.toLocaleString('id-ID')}</span>
-          <span className="text-neutral-500 font-semibold">{percentage.toFixed(0)}% dari Rp {limit.toLocaleString('id-ID')}</span>
+          <span className={`font-semibold ${isDanger ? 'text-rose-600' : isWarning ? 'text-amber-600' : 'text-neutral-600'}`}>
+            {percentage.toFixed(0)}% dari Rp {limit.toLocaleString('id-ID')}
+          </span>
         </div>
         <div className="w-full bg-neutral-200 rounded-full h-1.5 overflow-hidden">
           <div 
             className={`h-1.5 rounded-full transition-all duration-500 ${isDanger ? 'bg-rose-500' : isWarning ? 'bg-amber-400' : 'bg-neutral-900'}`}
-            style={{ width: `${percentage}%` }}
+            style={{ width: `${Math.min(percentage, 100)}%` }}
           ></div>
         </div>
       </div>
@@ -220,85 +222,97 @@ export default function RangkumanPage() {
           </div>
         </div>
         
-        {filteredCategories.map(cat => {
-          const subs = subcategories.filter(sc => sc.category_id === cat.id);
-          const catSpent = expensesByCategory[cat.name] || 0;
-          
-          if (catSpent === 0 && subs.every(s => (expensesByCategory[s.name] || 0) === 0)) return null;
+        {(() => {
+          const categoriesWithSpent = filteredCategories.map(cat => {
+            const catSpent = expensesByCategory[cat.name] || 0;
+            const subs = subcategories.filter(sc => sc.category_id === cat.id);
+            return { ...cat, spent: catSpent, subs };
+          })
+          .filter(cat => cat.spent > 0 || cat.subs.some(s => (expensesByCategory[s.name] || 0) > 0))
+          .sort((a, b) => b.spent - a.spent);
 
-          let catLimit = 0;
-          if (subs.length === 0) {
-            const b = budgets.find(b => b.category === cat.id);
-            catLimit = b ? Number(b.amount_limit) : 0;
-          } else {
-            subs.forEach(s => {
-              const b = budgets.find(b => b.category === s.id);
-              if (b) catLimit += Number(b.amount_limit);
-            });
-          }
+          return categoriesWithSpent.map(cat => {
+            const subs = cat.subs;
+            const catSpent = cat.spent;
+            
+            let catLimit = 0;
+            if (subs.length === 0) {
+              const b = budgets.find(b => b.category === cat.id && b.month === monthKey);
+              catLimit = b ? Number(b.amount_limit) : 0;
+            } else {
+              subs.forEach(s => {
+                const b = budgets.find(b => b.category === s.id && b.month === monthKey);
+                if (b) catLimit += Number(b.amount_limit);
+              });
+            }
 
-          const catChartData = chartData.find(d => d.id === cat.id);
-          const colorDot = catChartData ? catChartData.color : '#cbd5e1';
-          const isExpanded = expandedCats[cat.id];
+            const catChartData = chartData.find(d => d.id === cat.id);
+            const colorDot = catChartData ? catChartData.color : '#cbd5e1';
+            const isExpanded = expandedCats[cat.id];
 
-          return (
-            <div key={cat.id} className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-4">
-              <div 
-                className={`flex justify-between items-start ${subs.length > 0 ? 'cursor-pointer hover:opacity-80' : ''}`}
-                onClick={() => subs.length > 0 && toggleExpand(cat.id)}
-              >
-                <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: colorDot }}></span>
-                  {cat.name}
-                  {catChartData && <span className="text-[10px] font-medium text-neutral-400">({catChartData.percentage}%)</span>}
-                </h3>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-neutral-900">
-                    Rp {catSpent.toLocaleString('id-ID')}
-                  </span>
-                  {subs.length > 0 && (
-                    <span className="text-neutral-400">
-                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            return (
+              <div key={cat.id} className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-4">
+                <div 
+                  className={`flex justify-between items-start ${subs.length > 0 ? 'cursor-pointer hover:opacity-80' : ''}`}
+                  onClick={() => subs.length > 0 && toggleExpand(cat.id)}
+                >
+                  <h3 className="font-semibold text-neutral-800 flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: colorDot }}></span>
+                    {cat.name}
+                    {catChartData && <span className="text-[10px] font-medium text-neutral-400">({catChartData.percentage}%)</span>}
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-neutral-900">
+                      Rp {catSpent.toLocaleString('id-ID')}
                     </span>
-                  )}
+                    {subs.length > 0 && (
+                      <span className="text-neutral-400">
+                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {activeTab === 'pengeluaran' && renderProgressBar(catSpent, catLimit)}
+                {activeTab === 'pengeluaran' && renderProgressBar(catSpent, catLimit)}
 
-              {subs.length > 0 && isExpanded && (
-                <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-neutral-100">
-                  {subs.map(sub => {
-                    const subSpent = expensesByCategory[sub.name] || 0;
-                    if (subSpent === 0) return null;
+                {subs.length > 0 && isExpanded && (
+                  <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-neutral-100">
+                    {(() => {
+                      const subsWithSpent = subs.map(sub => {
+                        const subSpent = expensesByCategory[sub.name] || 0;
+                        const b = budgets.find(b => b.category === sub.id && b.month === monthKey);
+                        const subLimit = b ? Number(b.amount_limit) : 0;
+                        const subPercentOfCat = catSpent > 0 ? ((subSpent / catSpent) * 100).toFixed(0) : 0;
+                        return { ...sub, spent: subSpent, limit: subLimit, percentOfCat: subPercentOfCat };
+                      })
+                      .filter(s => s.spent > 0)
+                      .sort((a, b) => b.spent - a.spent);
 
-                    const b = budgets.find(b => b.category === sub.id);
-                    const subLimit = b ? Number(b.amount_limit) : 0;
-
-                    return (
-                      <div 
-                        key={sub.id} 
-                        onClick={() => handleSubClick(sub.name)}
-                        className="bg-neutral-50 p-3 rounded-xl border border-neutral-100 cursor-pointer hover:bg-neutral-100 transition-colors group"
-                      >
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-xs font-medium text-neutral-600 group-hover:text-neutral-900 transition-colors flex items-center gap-1">
-                            {sub.name}
-                            <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </span>
-                          <span className="text-xs font-semibold text-neutral-800">
-                            Rp {subSpent.toLocaleString('id-ID')}
-                          </span>
+                      return subsWithSpent.map(sub => (
+                        <div 
+                          key={sub.id} 
+                          onClick={() => handleSubClick(sub.name)}
+                          className="bg-neutral-50 p-3 rounded-xl border border-neutral-100 cursor-pointer hover:bg-neutral-100 transition-colors group"
+                        >
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-medium text-neutral-600 group-hover:text-neutral-900 transition-colors flex items-center gap-1">
+                              {sub.name} <span className="text-[10px] text-neutral-400 font-semibold">({sub.percentOfCat}%)</span>
+                              <ChevronRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </span>
+                            <span className="text-xs font-semibold text-neutral-800">
+                              Rp {sub.spent.toLocaleString('id-ID')}
+                            </span>
+                          </div>
+                          {activeTab === 'pengeluaran' && renderProgressBar(sub.spent, sub.limit)}
                         </div>
-                        {activeTab === 'pengeluaran' && renderProgressBar(subSpent, subLimit)}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                      ));
+                    })()}
+                  </div>
+                )}
+              </div>
+            );
+          });
+        })()}
       </div>
     </div>
   );
