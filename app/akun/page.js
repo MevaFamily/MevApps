@@ -237,9 +237,9 @@ export default function AkunPage() {
 
           return (
             <div key={groupType}>
-              <div className="flex justify-between items-end mb-3 px-1">
-                <h3 className="font-semibold text-neutral-800">{groupType}</h3>
-                <span className="text-xs font-medium text-neutral-500">
+              <div className="flex justify-between items-center mb-3 px-1">
+                <h3 className="font-bold text-xs uppercase tracking-wider text-neutral-400">{groupType}</h3>
+                <span className="text-xs font-bold text-neutral-800 bg-neutral-100 border border-neutral-200 px-3 py-1 rounded-full shadow-sm">
                   Rp {groupTotal.toLocaleString('id-ID')}
                 </span>
               </div>
@@ -257,7 +257,7 @@ export default function AkunPage() {
                       <h4 className="font-medium text-neutral-900">{acc.name}</h4>
                     </div>
                     <div className="text-right">
-                      <span className="font-semibold text-neutral-900 text-sm">
+                      <span className={`font-bold text-sm ${Number(acc.balance) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                         Rp {Number(acc.balance).toLocaleString('id-ID')}
                       </span>
                     </div>
