@@ -10,7 +10,9 @@ export default function AkunPage() {
   const [editData, setEditData] = useState(null);
   
   const [name, setName] = useState("");
-  const [type, setType] = useState("Umum"); // Repurposed as custom Group Name
+  const [selectedGroup, setSelectedGroup] = useState("Umum");
+  const [newGroupInput, setNewGroupInput] = useState("");
+  const [isAddingNewGroup, setIsAddingNewGroup] = useState(false);
   const [balance, setBalance] = useState("");
   
   const netWorth = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
@@ -54,7 +56,9 @@ export default function AkunPage() {
   const openAddModal = () => {
     setEditData(null);
     setName("");
-    setType("Umum");
+    setSelectedGroup(existingGroups[0] || "Umum");
+    setNewGroupInput("");
+    setIsAddingNewGroup(false);
     setBalance("");
     setShowModal(true);
   };
@@ -62,7 +66,9 @@ export default function AkunPage() {
   const openEditModal = (acc) => {
     setEditData(acc);
     setName(acc.name);
-    setType(acc.type);
+    setSelectedGroup(acc.type || "Lainnya");
+    setNewGroupInput("");
+    setIsAddingNewGroup(false);
     setBalance(Number(acc.balance).toLocaleString('id-ID'));
     setShowModal(true);
   };
@@ -71,10 +77,13 @@ export default function AkunPage() {
     e.preventDefault();
     if (!name.trim()) return alert("Nama akun tidak boleh kosong.");
     
+    const finalType = isAddingNewGroup ? newGroupInput.trim() : selectedGroup;
+    if (!finalType) return alert("Kelompok akun tidak boleh kosong.");
+    
     const balanceNum = Number(balance.replace(/\./g, '')) || 0;
     
     if (editData) {
-      const updatedAccount = { ...editData, name: name.trim(), type, balance: balanceNum };
+      const updatedAccount = { ...editData, name: name.trim(), type: finalType, balance: balanceNum };
       setAccounts(prev => prev.map(a => a.id === editData.id ? updatedAccount : a));
       setShowModal(false);
 
@@ -87,7 +96,7 @@ export default function AkunPage() {
       }
     } else {
       const newId = crypto.randomUUID();
-      const newAccount = { id: newId, name: name.trim(), type, balance: balanceNum, created_at: new Date().toISOString() };
+      const newAccount = { id: newId, name: name.trim(), type: finalType, balance: balanceNum, created_at: new Date().toISOString() };
       setAccounts(prev => [...prev, newAccount]);
       setShowModal(false);
 
@@ -288,23 +297,56 @@ export default function AkunPage() {
 
               <div>
                 <label className="block text-xs font-medium text-neutral-400 mb-1">Kelompok Akun</label>
-                <input 
-                  type="text" required
-                  list="group-options"
-                  className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
-                  value={type} onChange={(e) => setType(e.target.value)}
-                  placeholder="Misal: Uang Ivan, Uang Melin, Tabungan"
-                />
-                <datalist id="group-options">
-                  {existingGroups.map(g => (
-                    <option key={g} value={g} />
-                  ))}
-                </datalist>
+                {!isAddingNewGroup ? (
+                  <select
+                    className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                    value={selectedGroup}
+                    onChange={(e) => {
+                      if (e.target.value === "__ADD_NEW__") {
+                        setIsAddingNewGroup(true);
+                        setNewGroupInput("");
+                      } else {
+                        setSelectedGroup(e.target.value);
+                      }
+                    }}
+                  >
+                    {existingGroups.map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                    <option value="__ADD_NEW__">+ Tambah Kelompok Baru...</option>
+                  </select>
+                ) : (
+                  <div className="flex gap-2 items-center">
+                    <input 
+                      type="text" required autoFocus
+                      className="flex-1 bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                      value={newGroupInput} onChange={(e) => setNewGroupInput(e.target.value)}
+                      placeholder="Masukkan nama kelompok baru..."
+                    />
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setIsAddingNewGroup(false);
+                        setSelectedGroup(existingGroups[0] || "Umum");
+                      }} 
+                      className="text-xs font-semibold text-neutral-500 hover:text-neutral-950 px-3 py-3 border border-neutral-200 rounded-xl bg-white shrink-0"
+                    >
+                      Batal
+                    </button>
+                  </div>
+                )}
+                
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {existingGroups.filter(g => g !== "Lainnya").map(g => (
-                    <button key={g} type="button" onClick={() => setType(g)}
+                    <button 
+                      key={g} 
+                      type="button" 
+                      onClick={() => {
+                        setSelectedGroup(g);
+                        setIsAddingNewGroup(false);
+                      }}
                       className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${
-                        type === g ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-neutral-50 text-neutral-600 border-neutral-200'
+                        (!isAddingNewGroup && selectedGroup === g) ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-neutral-50 text-neutral-600 border-neutral-200'
                       }`}
                     >
                       {g}
