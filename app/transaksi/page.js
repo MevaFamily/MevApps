@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
 
 function TransaksiContent() {
-  const { transactions, accounts } = useContext(AppContext);
+  const { transactions, accounts, categories, subcategories, budgets } = useContext(AppContext);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -48,10 +48,37 @@ function TransaksiContent() {
     filteredTx = filteredTx.filter(tx => tx.subcategory === querySubcat);
   }
 
-  // Hitung total pengeluaran bulan ini
+  // Hitung total pengeluaran bulan ini (berdasarkan filter aktif)
   const totalPengeluaranBulanIni = filteredTx
     .filter(tx => tx.type === 'pengeluaran')
     .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+  // Hitung total pengeluaran bulan ini keseluruhan (untuk perbandingan budget)
+  const overallMonthlyExpense = transactions
+    .filter(tx => tx.type === 'pengeluaran' && tx.date.startsWith(monthKey))
+    .reduce((sum, tx) => sum + Number(tx.amount), 0);
+
+  // Hitung total budget limit keseluruhan bulan ini
+  const expensesCategories = categories.filter(c => c.type === 'pengeluaran');
+  let totalBudgetLimit = 0;
+  expensesCategories.forEach(cat => {
+    const subs = subcategories.filter(sc => sc.category_id === cat.id);
+    let catLimit = 0;
+    if (subs.length === 0) {
+      const b = budgets.find(b => b.category === cat.id && b.month === monthKey);
+      if (b) catLimit += Number(b.amount_limit);
+    } else {
+      subs.forEach(s => {
+        const b = budgets.find(b => b.category === s.id && b.month === monthKey);
+        if (b) catLimit += Number(b.amount_limit);
+      });
+    }
+    if (catLimit > 0) {
+      totalBudgetLimit += catLimit;
+    }
+  });
+
+  const budgetPercentage = totalBudgetLimit > 0 ? (overallMonthlyExpense / totalBudgetLimit) * 100 : 0;
 
   // Group by date
   const groupedTransactions = filteredTx.reduce((acc, tx) => {
@@ -98,13 +125,18 @@ function TransaksiContent() {
 
       {/* Rangkuman Bulan Ini */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-neutral-100 mb-8 flex justify-between items-center">
-        <div>
+        <div className="flex-1">
           <p className="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-1">Pengeluaran Bulan Ini</p>
-          <p className="text-2xl font-bold text-neutral-900">
+          <p className="text-2xl font-bold text-neutral-900 mb-1.5">
             Rp {totalPengeluaranBulanIni.toLocaleString('id-ID')}
           </p>
+          {totalBudgetLimit > 0 && (
+            <p className="text-[10px] text-neutral-500 font-medium">
+              Terpakai <span className="font-semibold text-rose-500">{budgetPercentage.toFixed(0)}%</span> dari total budget Rp {totalBudgetLimit.toLocaleString('id-ID')}
+            </p>
+          )}
         </div>
-        <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
           <svg className="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>
         </div>
       </div>
