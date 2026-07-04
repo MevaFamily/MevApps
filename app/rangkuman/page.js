@@ -1,7 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import useAppStore from "@/store/useAppStore";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import Link from "next/link";
 import { Settings, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -97,6 +97,29 @@ export default function RangkumanPage() {
     name: cat.name,
     value: expensesByCategory[cat.name] || 0
   })).filter(d => d.value > 0).sort((a,b) => b.value - a.value);
+
+  // Calculate historical data for the last 6 months
+  const historicalData = useMemo(() => {
+    const data = [];
+    const today = new Date(currentDate);
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const mStr = String(d.getMonth() + 1).padStart(2, '0');
+      const yStr = d.getFullYear();
+      const monthPrefix = `${yStr}-${mStr}`;
+      
+      const monthTotal = transactions
+        .filter(tx => tx.type === activeTab && tx.date.startsWith(monthPrefix))
+        .reduce((sum, tx) => sum + Number(tx.amount), 0);
+        
+      data.push({
+        month: d.toLocaleString('id-ID', { month: 'short' }),
+        fullMonth: d.toLocaleString('id-ID', { month: 'long', year: 'numeric' }),
+        total: monthTotal
+      });
+    }
+    return data;
+  }, [transactions, activeTab, currentDate]);
 
   const totalAmount = rawChartData.reduce((sum, d) => sum + d.value, 0);
 
@@ -284,6 +307,52 @@ export default function RangkumanPage() {
             Belum ada data {activeTab} bulan ini.
           </div>
         )}
+      </div>
+
+      {/* Histori Chart */}
+      <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-5 mb-6">
+        <div className="flex justify-between items-end mb-4">
+          <div>
+            <h2 className="text-sm font-bold text-neutral-900 tracking-tight">Histori {activeTab === 'pengeluaran' ? 'Pengeluaran' : 'Pemasukan'}</h2>
+            <p className="text-[10px] text-neutral-400 mt-0.5">6 Bulan Terakhir</p>
+          </div>
+        </div>
+        <div className="h-48 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={historicalData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f5f5f5" />
+              <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#a3a3a3' }} dy={10} />
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 10, fill: '#a3a3a3' }} 
+                tickFormatter={(value) => value >= 1000000 ? `${(value/1000000).toFixed(1)}jt` : value >= 1000 ? `${value/1000}k` : value}
+              />
+              <Tooltip 
+                cursor={{ fill: '#f5f5f5' }}
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="bg-white p-3 border border-neutral-100 rounded-xl shadow-lg">
+                        <p className="text-[10px] text-neutral-500 font-medium mb-1">{payload[0].payload.fullMonth}</p>
+                        <p className={`text-sm font-bold ${activeTab === 'pengeluaran' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          Rp {payload[0].value.toLocaleString('id-ID')}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Bar 
+                dataKey="total" 
+                fill={activeTab === 'pengeluaran' ? '#ef4444' : '#10b981'} 
+                radius={[4, 4, 0, 0]} 
+                barSize={24}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       <div className="space-y-4">
