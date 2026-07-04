@@ -56,15 +56,6 @@ export default function AkunPage() {
 
   const trendData = useMemo(() => getHistoricalNetWorth(), [transactions, netWorth]);
 
-  const pieData = useMemo(() => {
-    return Object.entries(groupedAccounts).map(([group, accs]) => {
-      const value = accs.reduce((sum, a) => sum + Number(a.balance), 0);
-      return { name: group, value: value > 0 ? value : 0 };
-    }).filter(item => item.value > 0);
-  }, [groupedAccounts]);
-
-  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#4b5563'];
-
   const toggleGroupCollapse = (groupType) => {
     setCollapsedGroups(prev => ({
       ...prev,
@@ -189,6 +180,15 @@ export default function AkunPage() {
     }
     return groups;
   }, [groupedAccounts]);
+
+  const pieData = useMemo(() => {
+    return Object.entries(groupedAccounts).map(([group, accs]) => {
+      const value = accs.reduce((sum, a) => sum + Number(a.balance), 0);
+      return { name: group, value: value > 0 ? value : 0 };
+    }).filter(item => item.value > 0);
+  }, [groupedAccounts]);
+
+  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#4b5563'];
 
   const getAccountIcon = (acc) => {
     const nameLower = acc.name.toLowerCase();
