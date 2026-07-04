@@ -22,6 +22,7 @@ export default function AnggaranPage() {
   const [inputValue, setInputValue] = useState("");
   const [budgetLimitStr, setBudgetLimitStr] = useState("");
   const [expandedCats, setExpandedCats] = useState({});
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const filteredCategories = categories.filter(c => c.type === activeTab);
 
@@ -109,6 +110,7 @@ export default function AnggaranPage() {
     setParentCategory(null);
     setInputValue("");
     setBudgetLimitStr("");
+    setShowDeleteConfirm(false);
   };
 
   const handleAmountChange = (e) => {
@@ -173,9 +175,8 @@ export default function AnggaranPage() {
     closeModal();
   };
 
-  const handleDelete = async () => {
+  const confirmDelete = async () => {
     if (!editItem) return;
-    if (!confirm(`Hapus ${modalType === 'category' ? 'kategori' : 'sub kategori'} ini?`)) return;
 
     if (modalType === 'category') {
       setCategories(prev => prev.filter(c => c.id !== editItem.id));
@@ -184,6 +185,7 @@ export default function AnggaranPage() {
       setSubcategories(prev => prev.filter(sc => sc.id !== editItem.id));
       try { await supabase.from('subcategories').delete().eq('id', editItem.id); } catch (err) {}
     }
+    setShowDeleteConfirm(false);
     closeModal();
   };
 
@@ -394,7 +396,7 @@ export default function AnggaranPage() {
 
               <div className="flex gap-3 pt-2">
                 {editItem && (
-                  <button type="button" onClick={handleDelete} className="flex-1 bg-rose-50 text-rose-600 font-medium rounded-xl px-4 py-3.5 hover:bg-rose-100 transition-colors">
+                  <button type="button" onClick={() => setShowDeleteConfirm(true)} className="flex-1 bg-rose-50 text-rose-600 font-medium rounded-xl px-4 py-3.5 hover:bg-rose-100 transition-colors">
                     Hapus
                   </button>
                 )}
@@ -404,6 +406,32 @@ export default function AnggaranPage() {
               </div>
             </form>
       </ModalBottomSheet>
+
+      {/* Pop-up Konfirmasi Hapus */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[110] bg-neutral-900/40 backdrop-blur-sm flex justify-center items-center p-4">
+          <div className="bg-white p-5 rounded-2xl max-w-xs w-full shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <h3 className="font-semibold text-neutral-900 text-lg mb-2">Hapus {modalType === 'category' ? 'Kategori' : 'Sub Kategori'}?</h3>
+            <p className="text-sm text-neutral-400 mb-6">Tindakan ini tidak dapat dibatalkan.</p>
+            <div className="flex gap-3">
+              <button 
+                type="button" 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 text-sm font-medium text-neutral-500 bg-neutral-100 hover:bg-neutral-200 rounded-xl transition-colors"
+              >
+                Batal
+              </button>
+              <button 
+                type="button" 
+                onClick={confirmDelete}
+                className="flex-1 py-2.5 text-sm font-medium text-white bg-rose-500 hover:bg-rose-600 rounded-xl transition-colors"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
