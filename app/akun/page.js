@@ -23,6 +23,7 @@ export default function AkunPage() {
   const [showGroupDropdown, setShowGroupDropdown] = useState(false);
   const groupRef = useRef(null);
   const [balance, setBalance] = useState("");
+  const [targetAmount, setTargetAmount] = useState("");
   
   const netWorth = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
 
@@ -69,6 +70,12 @@ export default function AkunPage() {
     else setBalance("");
   };
 
+  const handleTargetChange = (e) => {
+    let rawValue = e.target.value.replace(/[^0-9]/g, ''); 
+    if (rawValue) setTargetAmount(Number(rawValue).toLocaleString('id-ID'));
+    else setTargetAmount("");
+  };
+
   useEffect(() => {
     function handleClickOutside(e) {
       if (groupRef.current && !groupRef.current.contains(e.target)) setShowGroupDropdown(false);
@@ -83,6 +90,7 @@ export default function AkunPage() {
     setSelectedGroup(existingGroups[0] || "Umum");
     setShowGroupDropdown(false);
     setBalance("");
+    setTargetAmount("");
     setShowModal(true);
   };
 
@@ -92,6 +100,7 @@ export default function AkunPage() {
     setSelectedGroup(acc.type || "Lainnya");
     setShowGroupDropdown(false);
     setBalance(Number(acc.balance).toLocaleString('id-ID'));
+    setTargetAmount(acc.target_amount ? Number(acc.target_amount).toLocaleString('id-ID') : "");
     setShowModal(true);
   };
 
@@ -103,17 +112,18 @@ export default function AkunPage() {
     if (!finalType) return alert("Kelompok akun tidak boleh kosong.");
     
     const balanceNum = Number(balance.replace(/\./g, '')) || 0;
+    const targetNum = Number(targetAmount.replace(/\./g, '')) || 0;
     const dbName = name.trim();
     const dbType = finalType;
     
     if (editData) {
-      const updatedAccount = { ...editData, name: name.trim(), type: finalType, balance: balanceNum };
+      const updatedAccount = { ...editData, name: name.trim(), type: finalType, balance: balanceNum, target_amount: targetNum };
       setAccounts(prev => prev.map(a => a.id === editData.id ? updatedAccount : a));
       setShowModal(false);
 
       try {
         const { error } = await supabase.from('accounts').update({
-          name: dbName, type: dbType, balance: balanceNum
+          name: dbName, type: dbType, balance: balanceNum, target_amount: targetNum
         }).eq('id', editData.id);
         if (error) {
           alert("Gagal memperbarui akun di database: " + error.message);
@@ -125,13 +135,13 @@ export default function AkunPage() {
       }
     } else {
       const newId = crypto.randomUUID();
-      const newAccount = { id: newId, name: name.trim(), type: finalType, balance: balanceNum, created_at: new Date().toISOString() };
+      const newAccount = { id: newId, name: name.trim(), type: finalType, balance: balanceNum, target_amount: targetNum, created_at: new Date().toISOString() };
       setAccounts(prev => [...prev, newAccount]);
       setShowModal(false);
 
       try {
         const { error } = await supabase.from('accounts').insert([{
-          id: newAccount.id, name: dbName, type: dbType, balance: balanceNum
+          id: newAccount.id, name: dbName, type: dbType, balance: balanceNum, target_amount: targetNum
         }]);
         if (error) {
           alert("Gagal menambahkan akun ke database: " + error.message);
@@ -360,19 +370,37 @@ export default function AkunPage() {
                     <div 
                       key={acc.id} 
                       onClick={() => openEditModal(acc)}
-                      className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-4 flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
+                      className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-4 flex flex-col cursor-pointer hover:opacity-80 transition-opacity"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-neutral-50 border border-neutral-100 flex items-center justify-center">
-                          {getAccountIcon(acc)}
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-neutral-50 border border-neutral-100 flex items-center justify-center">
+                            {getAccountIcon(acc)}
+                          </div>
+                          <h4 className="font-medium text-neutral-900">{acc.name}</h4>
                         </div>
-                        <h4 className="font-medium text-neutral-900">{acc.name}</h4>
+                        <div className="text-right">
+                          <span className={`font-bold text-sm ${Number(acc.balance) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            Rp {Number(acc.balance).toLocaleString('id-ID')}
+                          </span>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className={`font-bold text-sm ${Number(acc.balance) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                          Rp {Number(acc.balance).toLocaleString('id-ID')}
-                        </span>
-                      </div>
+                      
+                      {/* Target Tabungan Progress */}
+                      {acc.target_amount > 0 && (
+                        <div className="mt-3 pt-3 border-t border-neutral-50">
+                          <div className="flex justify-between text-[10px] font-medium mb-1.5">
+                            <span className="text-neutral-400">Target: Rp {Number(acc.target_amount).toLocaleString('id-ID')}</span>
+                            <span className="text-indigo-500">{Math.min(Math.round((Number(acc.balance) / acc.target_amount) * 100), 100)}%</span>
+                          </div>
+                          <div className="w-full bg-neutral-100 rounded-full h-1.5 overflow-hidden">
+                            <div 
+                              className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" 
+                              style={{ width: `${Math.min(Math.max((Number(acc.balance) / acc.target_amount) * 100, 0), 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -463,6 +491,16 @@ export default function AkunPage() {
                   className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-2xl font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
                   value={balance} onChange={handleAmountChange}
                   placeholder="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-neutral-400 mb-1">Target Tabungan (Opsional)</label>
+                <input 
+                  type="text" inputMode="numeric"
+                  className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-lg font-semibold text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  value={targetAmount} onChange={handleTargetChange}
+                  placeholder="0 (Kosongkan jika bukan tabungan)"
                 />
               </div>
 
