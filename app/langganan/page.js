@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import useAppStore from "@/store/useAppStore";
 import { supabase } from "@/lib/supabase";
-import { ChevronLeft, Plus, Trash2, Edit2 } from "lucide-react";
+import { ChevronLeft, Plus, Trash2, Edit2, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import ModalBottomSheet from "@/components/ModalBottomSheet";
 
@@ -16,17 +16,39 @@ export default function LanggananPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   
-  const [categoryId, setCategoryId] = useState("");
-  const [subcategoryId, setSubcategoryId] = useState("");
+  const [categoryName, setCategoryName] = useState("");
+  const [subcategoryName, setSubcategoryName] = useState("");
   const [dueDate, setDueDate] = useState("1");
   const [amountStr, setAmountStr] = useState("");
 
-  const filteredSubcategories = subcategories.filter(sc => sc.category_id === categoryId);
+  const [showCatDropdown, setShowCatDropdown] = useState(false);
+  const [showSubcatDropdown, setShowSubcatDropdown] = useState(false);
+  
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+
+  const catRef = useRef(null);
+  const subcatRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (catRef.current && !catRef.current.contains(e.target)) setShowCatDropdown(false);
+      if (subcatRef.current && !subcatRef.current.contains(e.target)) setShowSubcatDropdown(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredCategories = categories.filter(c => c.name.toLowerCase().includes(categoryName.toLowerCase()));
+  const exactCategory = categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+  const filteredSubcategories = exactCategory 
+    ? subcategories.filter(sc => sc.category_id === exactCategory.id && sc.name.toLowerCase().includes(subcategoryName.toLowerCase()))
+    : [];
 
   const openAdd = () => {
     setEditItem(null);
-    setCategoryId("");
-    setSubcategoryId("");
+    setCategoryName("");
+    setSubcategoryName("");
     setDueDate("1");
     setAmountStr("");
     setModalOpen(true);
@@ -34,55 +56,53 @@ export default function LanggananPage() {
 
   const openEdit = (bill) => {
     setEditItem(bill);
-    const cat = categories.find(c => c.name === bill.category);
-    if (cat) {
-      setCategoryId(cat.id);
-      const subcat = subcategories.find(sc => sc.name === bill.subcategory && sc.category_id === cat.id);
-      if (subcat) setSubcategoryId(subcat.id);
-    }
+    setCategoryName(bill.category || "");
+    setSubcategoryName(bill.subcategory || "");
     setDueDate(String(bill.due_date));
     setAmountStr(Number(bill.expected_amount).toLocaleString('id-ID'));
     setModalOpen(true);
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("Hapus tagihan rutin ini?")) return;
+  const confirmDelete = (id) => {
+    setDeleteTargetId(id);
+    setShowDeleteConfirm(true);
+  };
+
+  const executeDelete = async () => {
+    if (!deleteTargetId) return;
     
     // Optimistic update
-    setRecurringBills(prev => prev.filter(b => b.id !== id));
+    setRecurringBills(prev => prev.filter(b => b.id !== deleteTargetId));
+    setShowDeleteConfirm(false);
     
-    const { error } = await supabase.from('recurring_bills').delete().eq('id', id);
+    const { error } = await supabase.from('recurring_bills').delete().eq('id', deleteTargetId);
     if (error) {
       alert("Gagal menghapus tagihan");
     }
+    setDeleteTargetId(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!categoryId) return alert("Pilih kategori");
+    if (!categoryName.trim()) return alert("Pilih kategori");
     if (!dueDate || Number(dueDate) < 1 || Number(dueDate) > 31) return alert("Tanggal harus 1-31");
     
     const amountNum = Number(amountStr.replace(/\./g, ''));
     if (amountNum < 0) return alert("Nominal tidak valid");
 
-    const cat = categories.find(c => c.id === categoryId);
-    const subcat = subcategories.find(sc => sc.id === subcategoryId);
-
     const payload = {
-      category: cat.name,
-      subcategory: subcat ? subcat.name : null,
+      category: categoryName.trim(),
+      subcategory: subcategoryName.trim() || null,
       due_date: Number(dueDate),
       expected_amount: amountNum
     };
 
     if (editItem) {
-      // Update
       const newBill = { ...editItem, ...payload };
       setRecurringBills(prev => prev.map(b => b.id === editItem.id ? newBill : b));
       setModalOpen(false);
       await supabase.from('recurring_bills').update(payload).eq('id', editItem.id);
     } else {
-      // Insert
       const newBill = { id: crypto.randomUUID(), ...payload };
       setRecurringBills(prev => [...prev, newBill].sort((a,b) => a.due_date - b.due_date));
       setModalOpen(false);
@@ -94,6 +114,16 @@ export default function LanggananPage() {
     let rawValue = e.target.value.replace(/[^0-9]/g, '');
     if (rawValue) setAmountStr(Number(rawValue).toLocaleString('id-ID'));
     else setAmountStr("");
+  };
+
+  const handleDueDateChange = (e) => {
+    let val = e.target.value.replace(/[^0-9]/g, '');
+    if (val !== "") {
+      let num = parseInt(val, 10);
+      if (num > 31) val = "31";
+      if (num < 1) val = "1";
+    }
+    setDueDate(val);
   };
 
   return (
@@ -143,7 +173,7 @@ export default function LanggananPage() {
                 <button onClick={() => openEdit(bill)} className="p-2 text-neutral-400 hover:text-indigo-600 bg-neutral-50 rounded-full transition-colors">
                   <Edit2 size={16} />
                 </button>
-                <button onClick={() => handleDelete(bill.id)} className="p-2 text-neutral-400 hover:text-rose-600 bg-neutral-50 rounded-full transition-colors">
+                <button onClick={() => confirmDelete(bill.id)} className="p-2 text-neutral-400 hover:text-rose-600 bg-neutral-50 rounded-full transition-colors">
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -159,34 +189,78 @@ export default function LanggananPage() {
             <h2 className="text-xl font-bold text-neutral-900 mb-6">{editItem ? 'Edit Tagihan' : 'Tambah Tagihan'}</h2>
             
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
+              {/* Dropdown Kategori Cerdas */}
+              <div className="relative" ref={catRef}>
                 <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Kategori Utama</label>
-                <select 
-                  value={categoryId} 
-                  onChange={(e) => { setCategoryId(e.target.value); setSubcategoryId(""); }}
-                  className="w-full bg-neutral-50 border border-neutral-200 text-neutral-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3.5 outline-none font-medium transition-all"
-                  required
-                >
-                  <option value="" disabled>Pilih Kategori...</option>
-                  {categories.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={categoryName}
+                    onChange={(e) => {
+                      setCategoryName(e.target.value);
+                      setShowCatDropdown(true);
+                      setSubcategoryName('');
+                    }}
+                    onFocus={() => setShowCatDropdown(true)}
+                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3.5 pr-10 outline-none font-medium transition-all"
+                    placeholder="Pilih atau ketik kategori..."
+                    required
+                  />
+                  <ChevronDown className="absolute right-3.5 top-3.5 text-neutral-400 pointer-events-none" size={18} />
+                </div>
+                {showCatDropdown && filteredCategories.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-neutral-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                    {filteredCategories.map(c => (
+                      <div
+                        key={c.id}
+                        className="px-4 py-3 hover:bg-neutral-50 cursor-pointer text-sm text-neutral-700 font-medium border-b border-neutral-50 last:border-0"
+                        onClick={() => {
+                          setCategoryName(c.name);
+                          setShowCatDropdown(false);
+                          setSubcategoryName('');
+                        }}
+                      >
+                        {c.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {filteredSubcategories.length > 0 && (
-                <div>
+              {/* Dropdown Subkategori Cerdas */}
+              {exactCategory && filteredSubcategories.length > 0 && (
+                <div className="relative" ref={subcatRef}>
                   <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Sub Kategori (Opsional)</label>
-                  <select 
-                    value={subcategoryId} 
-                    onChange={(e) => setSubcategoryId(e.target.value)}
-                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3.5 outline-none font-medium transition-all"
-                  >
-                    <option value="">Semua (Kosongkan)</option>
-                    {filteredSubcategories.map(sc => (
-                      <option key={sc.id} value={sc.id}>{sc.name}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={subcategoryName}
+                      onChange={(e) => {
+                        setSubcategoryName(e.target.value);
+                        setShowSubcatDropdown(true);
+                      }}
+                      onFocus={() => setShowSubcatDropdown(true)}
+                      className="w-full bg-neutral-50 border border-neutral-200 text-neutral-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3.5 pr-10 outline-none font-medium transition-all"
+                      placeholder="Semua (Kosongkan)"
+                    />
+                    <ChevronDown className="absolute right-3.5 top-3.5 text-neutral-400 pointer-events-none" size={18} />
+                  </div>
+                  {showSubcatDropdown && filteredSubcategories.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-neutral-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                      {filteredSubcategories.map(sc => (
+                        <div
+                          key={sc.id}
+                          className="px-4 py-3 hover:bg-neutral-50 cursor-pointer text-sm text-neutral-700 font-medium border-b border-neutral-50 last:border-0"
+                          onClick={() => {
+                            setSubcategoryName(sc.name);
+                            setShowSubcatDropdown(false);
+                          }}
+                        >
+                          {sc.name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -194,12 +268,13 @@ export default function LanggananPage() {
                 <div className="flex-1">
                   <label className="block text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2">Tgl Jatuh Tempo</label>
                   <input 
-                    type="number"
-                    min="1" max="31"
+                    type="text"
+                    inputMode="numeric"
                     value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3.5 outline-none font-medium transition-all"
+                    onChange={handleDueDateChange}
+                    className="w-full bg-neutral-50 border border-neutral-200 text-neutral-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block p-3.5 outline-none font-medium transition-all text-center"
                     required
+                    placeholder="1-31"
                   />
                 </div>
                 <div className="flex-[2]">
@@ -232,6 +307,43 @@ export default function LanggananPage() {
             </form>
           </div>
         </ModalBottomSheet>
+      )}
+
+      {/* Modal Konfirmasi Hapus */}
+      {showDeleteConfirm && (
+        <div 
+          className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-sm flex justify-center items-center p-4 animate-in fade-in duration-200"
+          onClick={() => setShowDeleteConfirm(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 shadow-xl max-w-sm w-full animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center mb-4">
+              <Trash2 className="text-rose-500" size={24} />
+            </div>
+            <h3 className="text-lg font-bold text-neutral-900 mb-2">Hapus Tagihan?</h3>
+            <p className="text-sm text-neutral-500 mb-6">
+              Apakah Anda yakin ingin menghapus pengingat tagihan rutin ini? Tagihan yang sudah tercatat di transaksi tidak akan terpengaruh.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                type="button" 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-3 bg-neutral-100 text-neutral-700 font-medium rounded-xl hover:bg-neutral-200 transition-colors"
+              >
+                Batal
+              </button>
+              <button 
+                type="button" 
+                onClick={executeDelete}
+                className="flex-1 py-3 bg-rose-500 text-white font-medium rounded-xl hover:bg-rose-600 transition-colors shadow-sm"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

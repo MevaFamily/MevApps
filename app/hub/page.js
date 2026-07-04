@@ -11,7 +11,6 @@ export default function HubPage() {
   };
 
   const tools = [
-    { name: 'Tagihan Rutin', icon: '🗓️', desc: 'Pengingat otomatis bulanan', route: '/langganan' },
     { name: 'Daftar Aset', icon: '🏠', desc: 'Manajemen aset rumah tangga' },
     { name: 'Servis Kendaraan', icon: '🚗', desc: 'Jadwal dan riwayat servis' },
     { name: 'Catatan Anak', icon: '👶', desc: 'Perkembangan dan vaksinasi' },
