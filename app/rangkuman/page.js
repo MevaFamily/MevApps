@@ -1,13 +1,16 @@
 "use client";
-import { useContext, useState, useMemo } from "react";
-import { AppContext } from "@/components/AppProvider";
+import { useState, useMemo } from "react";
+import useAppStore from "@/store/useAppStore";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import Link from "next/link";
 import { Settings, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function RangkumanPage() {
-  const { categories, subcategories, transactions, budgets } = useContext(AppContext);
+  const categories = useAppStore(state => state.categories);
+  const subcategories = useAppStore(state => state.subcategories);
+  const transactions = useAppStore(state => state.transactions);
+  const budgets = useAppStore(state => state.budgets);
   const [activeTab, setActiveTab] = useState("pengeluaran");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [expandedCats, setExpandedCats] = useState({});

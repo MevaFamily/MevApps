@@ -1,11 +1,18 @@
 "use client";
-import { useContext, useState } from "react";
-import { AppContext } from "@/components/AppProvider";
+import { useState } from "react";
+import useAppStore from "@/store/useAppStore";
 import { supabase } from "@/lib/supabase";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import ModalBottomSheet from "@/components/ModalBottomSheet";
 
 export default function AnggaranPage() {
-  const { categories, setCategories, subcategories, setSubcategories, transactions, budgets, setBudgets } = useContext(AppContext);
+  const categories = useAppStore(state => state.categories);
+  const setCategories = useAppStore(state => state.setCategories);
+  const subcategories = useAppStore(state => state.subcategories);
+  const setSubcategories = useAppStore(state => state.setSubcategories);
+  const transactions = useAppStore(state => state.transactions);
+  const budgets = useAppStore(state => state.budgets);
+  const setBudgets = useAppStore(state => state.setBudgets);
   const [activeTab, setActiveTab] = useState("pengeluaran");
   
   // Modal State
@@ -354,23 +361,12 @@ export default function AnggaranPage() {
       </div>
 
       {/* Modal Form Kategori / Sub Kategori */}
-      {modalType && (
-        <div 
-          className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-sm flex justify-center items-end sm:items-center"
-          onClick={closeModal}
-        >
-          <div 
-            className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-xl animate-in slide-in-from-bottom duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-lg font-semibold text-neutral-900">
-                {editItem ? 'Edit' : 'Tambah'} {modalType === 'category' ? 'Kategori' : 'Sub Kategori'}
-              </h2>
-              <button onClick={closeModal} className="text-neutral-400 hover:text-neutral-900 p-2">✕</button>
-            </div>
-            
-            <form onSubmit={handleSave} className="space-y-4 pb-4">
+      <ModalBottomSheet
+        isOpen={!!modalType}
+        onClose={closeModal}
+        title={`${editItem ? 'Edit' : 'Tambah'} ${modalType === 'category' ? 'Kategori' : 'Sub Kategori'}`}
+      >
+        <form onSubmit={handleSave} className="space-y-4 pb-4">
               <div>
                 <label className="block text-xs font-medium text-neutral-400 mb-1">Nama {modalType === 'category' ? 'Kategori' : 'Sub Kategori'}</label>
                 <input 
@@ -407,9 +403,7 @@ export default function AnggaranPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </ModalBottomSheet>
     </div>
   );
 }

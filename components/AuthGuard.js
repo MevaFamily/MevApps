@@ -1,10 +1,11 @@
 "use client";
-import { useContext, useEffect } from "react";
-import { AppContext } from "@/components/AppProvider";
+import { useEffect } from "react";
+import useAppStore from "@/store/useAppStore";
 import { useRouter, usePathname } from "next/navigation";
 
 export default function AuthGuard({ children }) {
-  const { session, loading } = useContext(AppContext);
+  const session = useAppStore(state => state.session);
+  const loading = useAppStore(state => state.loading);
   const router = useRouter();
   const pathname = usePathname();
 

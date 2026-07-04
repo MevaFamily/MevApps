@@ -1,17 +1,18 @@
 "use client";
-import { createContext, useState, useEffect } from "react";
+import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-
-export const AppContext = createContext();
+import useAppStore from "@/store/useAppStore";
 
 export default function AppProvider({ children }) {
-  const [accounts, setAccounts] = useState([]);
-  const [transactions, setTransactions] = useState([]);
-  const [budgets, setBudgets] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [subcategories, setSubcategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState(null);
+  const setAccounts = useAppStore(state => state.setAccounts);
+  const setTransactions = useAppStore(state => state.setTransactions);
+  const setBudgets = useAppStore(state => state.setBudgets);
+  const setCategories = useAppStore(state => state.setCategories);
+  const setSubcategories = useAppStore(state => state.setSubcategories);
+  const setLoading = useAppStore(state => state.setLoading);
+  const setSession = useAppStore(state => state.setSession);
+  const session = useAppStore(state => state.session);
+  const setHasMoreTransactions = useAppStore(state => state.setHasMoreTransactions);
 
   useEffect(() => {
     // Check initial session
@@ -50,7 +51,7 @@ export default function AppProvider({ children }) {
       try {
         const [accRes, txRes, bdgRes, catRes, subcatRes] = await Promise.all([
           supabase.from("accounts").select("*").order("created_at", { ascending: true }),
-          supabase.from("transactions").select("*").order("date", { ascending: false }).limit(100),
+          supabase.from("transactions").select("*").order("date", { ascending: false }).range(0, 49),
           supabase.from("budgets").select("*"),
           supabase.from("categories").select("*").order("name", { ascending: true }),
           supabase.from("subcategories").select("*").order("name", { ascending: true })
@@ -74,6 +75,11 @@ export default function AppProvider({ children }) {
             return tx;
           });
           setTransactions(parsedTransactions);
+          if (parsedTransactions.length < 50) {
+            setHasMoreTransactions(false);
+          } else {
+            setHasMoreTransactions(true);
+          }
         }
         if (bdgRes.data) setBudgets(bdgRes.data);
         if (catRes.data) setCategories(catRes.data);
@@ -169,17 +175,5 @@ export default function AppProvider({ children }) {
     };
   }, [session]);
 
-  return (
-    <AppContext.Provider value={{
-      session,
-      accounts, setAccounts,
-      transactions, setTransactions,
-      budgets, setBudgets,
-      categories, setCategories,
-      subcategories, setSubcategories,
-      loading
-    }}>
-      {children}
-    </AppContext.Provider>
-  );
+  return <>{children}</>;
 }

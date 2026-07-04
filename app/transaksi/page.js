@@ -1,12 +1,19 @@
 "use client";
-import { useContext, useState, useEffect, Suspense } from "react";
-import { AppContext } from "@/components/AppProvider";
+import { useState, useEffect, Suspense, useRef } from "react";
+import useAppStore from "@/store/useAppStore";
 import TransactionForm from "@/components/TransactionForm";
 import { useSearchParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
 
 function TransaksiContent() {
-  const { transactions, accounts, categories, subcategories, budgets } = useContext(AppContext);
+  const transactions = useAppStore(state => state.transactions);
+  const accounts = useAppStore(state => state.accounts);
+  const categories = useAppStore(state => state.categories);
+  const subcategories = useAppStore(state => state.subcategories);
+  const budgets = useAppStore(state => state.budgets);
+  const hasMoreTransactions = useAppStore(state => state.hasMoreTransactions);
+  const isLoadingMore = useAppStore(state => state.isLoadingMore);
+  const fetchMoreTransactions = useAppStore(state => state.fetchMoreTransactions);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -18,11 +25,34 @@ function TransaksiContent() {
   // Parse queryMonth to Date object or use current date
   const [currentDate, setCurrentDate] = useState(() => {
     if (queryMonth) {
-      const [year, month] = queryMonth.split('-');
-      return new Date(year, month - 1, 1);
+      const [y, m] = queryMonth.split('-');
+      return new Date(y, m - 1, 1);
     }
     return new Date();
   });
+
+  const observerTarget = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && hasMoreTransactions && !isLoadingMore) {
+          fetchMoreTransactions();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [hasMoreTransactions, isLoadingMore, fetchMoreTransactions]);
 
   useEffect(() => {
     if (queryMonth) {
@@ -227,6 +257,22 @@ function TransaksiContent() {
             <svg className="w-12 h-12 text-neutral-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
             <p className="text-neutral-500 font-medium">Belum ada transaksi</p>
             <p className="text-xs text-neutral-400 mt-1">Coba bulan lain atau tambahkan baru.</p>
+          </div>
+        )}
+        
+        {hasMoreTransactions && transactions.length > 0 && (
+          <div ref={observerTarget} className="py-6 flex justify-center items-center">
+            {isLoadingMore ? (
+              <div className="flex items-center gap-2 text-neutral-400 text-xs font-medium">
+                <svg className="animate-spin h-4 w-4 text-neutral-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Memuat data...
+              </div>
+            ) : (
+              <span className="text-xs text-transparent">Gulir ke bawah</span>
+            )}
           </div>
         )}
       </div>

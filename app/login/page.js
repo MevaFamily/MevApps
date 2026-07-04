@@ -1,8 +1,8 @@
 "use client";
-import { useState, useContext, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { AppContext } from "@/components/AppProvider";
+import useAppStore from "@/store/useAppStore";
 import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [loadingLogin, setLoadingLogin] = useState(false);
   const router = useRouter();
-  const { session } = useContext(AppContext);
+  const session = useAppStore(state => state.session);
 
   useEffect(() => {
     if (session) {

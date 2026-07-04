@@ -1,10 +1,17 @@
 "use client";
-import { useState, useContext, useEffect, useRef } from "react";
-import { AppContext } from "./AppProvider";
+import { useState, useEffect, useRef } from "react";
+import useAppStore from "@/store/useAppStore";
 import { supabase } from "@/lib/supabase";
+import ModalBottomSheet from "@/components/ModalBottomSheet";
 
 export default function TransactionForm({ onClose, initialData = null }) {
-  const { accounts, categories, subcategories, setTransactions, setAccounts, setCategories, setSubcategories } = useContext(AppContext);
+  const accounts = useAppStore(state => state.accounts);
+  const categories = useAppStore(state => state.categories);
+  const subcategories = useAppStore(state => state.subcategories);
+  const setTransactions = useAppStore(state => state.setTransactions);
+  const setAccounts = useAppStore(state => state.setAccounts);
+  const setCategories = useAppStore(state => state.setCategories);
+  const setSubcategories = useAppStore(state => state.setSubcategories);
   const isEdit = !!initialData;
 
   const [activeTab, setActiveTab] = useState(initialData?.type || "pengeluaran");
@@ -194,19 +201,11 @@ export default function TransactionForm({ onClose, initialData = null }) {
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-sm flex justify-center items-end sm:items-center"
-      onClick={onClose}
+    <ModalBottomSheet 
+      isOpen={true} 
+      onClose={onClose} 
+      title={isEdit ? 'Detail Transaksi' : 'Catat Transaksi'}
     >
-      <div 
-        className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-xl animate-in slide-in-from-bottom-full duration-300 overflow-y-auto max-h-[90vh]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex justify-between items-center mb-5">
-          <h2 className="text-lg font-semibold text-neutral-900">{isEdit ? 'Detail Transaksi' : 'Catat Transaksi'}</h2>
-          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-900 p-2">✕</button>
-        </div>
-
         <div className="flex bg-neutral-100 p-1 rounded-xl mb-6">
           {['pengeluaran', 'pemasukan', 'transfer'].map(tab => (
             <button
@@ -333,7 +332,6 @@ export default function TransactionForm({ onClose, initialData = null }) {
             </button>
           </div>
         </form>
-      </div>
 
       {/* Pop-up Konfirmasi Hapus */}
       {showDeleteConfirm && (
@@ -362,6 +360,6 @@ export default function TransactionForm({ onClose, initialData = null }) {
           </div>
         </div>
       )}
-    </div>
+    </ModalBottomSheet>
   );
 }

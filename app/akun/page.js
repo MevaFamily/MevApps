@@ -1,13 +1,16 @@
 "use client";
-import { useContext, useState, useMemo, useEffect, useRef } from "react";
-import { AppContext } from "@/components/AppProvider";
+import { useState, useMemo, useEffect, useRef } from "react";
+import useAppStore from "@/store/useAppStore";
 import { supabase } from "@/lib/supabase";
 import { ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from "recharts";
+import ModalBottomSheet from "@/components/ModalBottomSheet";
 
 
 
 export default function AkunPage() {
-  const { accounts, setAccounts, transactions } = useContext(AppContext);
+  const accounts = useAppStore(state => state.accounts);
+  const setAccounts = useAppStore(state => state.setAccounts);
+  const transactions = useAppStore(state => state.transactions);
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState(null);
   
@@ -295,21 +298,12 @@ export default function AkunPage() {
       </div>
 
       {/* Modal Form Akun */}
-      {showModal && (
-        <div 
-          className="fixed inset-0 z-50 bg-neutral-900/40 backdrop-blur-sm flex justify-center items-end sm:items-center"
-          onClick={() => setShowModal(false)}
-        >
-          <div 
-            className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-xl animate-in slide-in-from-bottom duration-300"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-lg font-semibold text-neutral-900">{editData ? 'Detail Akun' : 'Tambah Akun Baru'}</h2>
-              <button onClick={() => setShowModal(false)} className="text-neutral-400 hover:text-neutral-900 p-2">✕</button>
-            </div>
-            
-            <form onSubmit={handleSaveAccount} className="space-y-4 pb-4">
+      <ModalBottomSheet 
+        isOpen={showModal} 
+        onClose={() => setShowModal(false)} 
+        title={editData ? 'Detail Akun' : 'Tambah Akun Baru'}
+      >
+        <form onSubmit={handleSaveAccount} className="space-y-4 pb-4">
               <div>
                 <label className="block text-xs font-medium text-neutral-400 mb-1">Nama Akun</label>
                 <input 
@@ -392,9 +386,7 @@ export default function AkunPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </ModalBottomSheet>
     </div>
   );
 }
