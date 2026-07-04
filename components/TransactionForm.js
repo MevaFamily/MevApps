@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import useAppStore from "@/store/useAppStore";
 import { supabase } from "@/lib/supabase";
 import ModalBottomSheet from "@/components/ModalBottomSheet";
@@ -8,18 +8,33 @@ export default function TransactionForm({ onClose, initialData = null }) {
   const accounts = useAppStore(state => state.accounts);
   const categories = useAppStore(state => state.categories);
   const subcategories = useAppStore(state => state.subcategories);
+  const transactions = useAppStore(state => state.transactions);
+  const session = useAppStore(state => state.session);
   const setTransactions = useAppStore(state => state.setTransactions);
   const setAccounts = useAppStore(state => state.setAccounts);
   const setCategories = useAppStore(state => state.setCategories);
   const setSubcategories = useAppStore(state => state.setSubcategories);
   const isEdit = !!initialData;
 
+  const userEmail = session?.user?.email || "";
+  const username = userEmail.split('@')[0].toLowerCase(); // e.g. "ivan" or "melin"
+
+  const filteredAccounts = useMemo(() => {
+    if (username === 'ivan') {
+      return accounts.filter(a => !a.type || !(a.type.toLowerCase().includes('melin') || a.type.toLowerCase().includes('istri')));
+    }
+    if (username === 'melin') {
+      return accounts.filter(a => !a.type || !(a.type.toLowerCase().includes('ivan') || a.type.toLowerCase().includes('pribadi')));
+    }
+    return accounts;
+  }, [accounts, username]);
+
   const [activeTab, setActiveTab] = useState(initialData?.type || "pengeluaran");
   
   const [amountStr, setAmountStr] = useState(initialData ? initialData.amount.toLocaleString('id-ID') : "");
   const [categoryName, setCategoryName] = useState(initialData?.category || "");
   const [subcategoryName, setSubcategoryName] = useState(initialData?.subcategory || "");
-  const [accountId, setAccountId] = useState(initialData?.account_id || (accounts[0]?.id || ""));
+  const [accountId, setAccountId] = useState(initialData?.account_id || "");
   const [destAccountId, setDestAccountId] = useState(initialData?.destination_account_id || "");
   const [note, setNote] = useState(initialData?.note || "");
   const [dateStr, setDateStr] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
@@ -40,10 +55,25 @@ export default function TransactionForm({ onClose, initialData = null }) {
   }, []);
 
   useEffect(() => {
-    if (accounts.length > 0 && !accountId) {
-      setAccountId(accounts[0].id);
+    if (filteredAccounts.length > 0 && !accountId && !initialData) {
+      let defaultAcc = null;
+      if (username === 'ivan') {
+        defaultAcc = filteredAccounts.find(a => 
+          (a.type && (a.type.toLowerCase().includes('ivan') || a.type.toLowerCase().includes('pribadi')))
+        );
+      } else if (username === 'melin') {
+        defaultAcc = filteredAccounts.find(a => 
+          (a.type && (a.type.toLowerCase().includes('melin') || a.type.toLowerCase().includes('istri')))
+        );
+      }
+      
+      if (defaultAcc) {
+        setAccountId(defaultAcc.id);
+      } else {
+        setAccountId(filteredAccounts[0].id);
+      }
     }
-  }, [accounts]);
+  }, [filteredAccounts, username, accountId, initialData]);
 
   const handleAmountChange = (e) => {
     let rawValue = e.target.value.replace(/[^0-9]/g, '');
@@ -65,6 +95,24 @@ export default function TransactionForm({ onClose, initialData = null }) {
   const filteredSubcategories = exactCategory 
     ? subcategories.filter(sc => sc.category_id === exactCategory.id && sc.name.toLowerCase().includes(subcategoryName.toLowerCase()))
     : [];
+
+  const noteSuggestions = useMemo(() => {
+    if (!categoryName) return [];
+    const matchedTxs = transactions.filter(t => 
+      t.category?.toLowerCase() === categoryName.toLowerCase() &&
+      (!subcategoryName || t.subcategory?.toLowerCase() === subcategoryName.toLowerCase()) &&
+      t.note && t.note.trim() !== ""
+    );
+    const freq = {};
+    matchedTxs.forEach(t => {
+      const n = t.note.trim();
+      freq[n] = (freq[n] || 0) + 1;
+    });
+    return Object.entries(freq)
+      .sort((a, b) => b[1] - a[1])
+      .map(entry => entry[0])
+      .slice(0, 4);
+  }, [categoryName, subcategoryName, transactions]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -204,7 +252,7 @@ export default function TransactionForm({ onClose, initialData = null }) {
     <ModalBottomSheet 
       isOpen={true} 
       onClose={onClose} 
-      title={isEdit ? 'Detail Transaksi' : 'Catat Transaksi'}
+      title={isEdit ? 'Transaction Detail' : 'Record Transaction'}
     >
         <div className="flex bg-neutral-100 p-1 rounded-xl mb-6">
           {['pengeluaran', 'pemasukan', 'transfer'].map(tab => (
@@ -217,23 +265,23 @@ export default function TransactionForm({ onClose, initialData = null }) {
               }}
               className={`flex-1 py-2 text-sm font-medium rounded-lg capitalize transition-colors ${getTabColor(tab)}`}
             >
-              {tab}
+              {tab === 'pengeluaran' ? 'Expense' : tab === 'pemasukan' ? 'Income' : 'Transfer'}
             </button>
           ))}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 pb-10">
           <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1">Tanggal</label>
+            <label className="block text-xs font-medium text-neutral-400 mb-1">Date</label>
             <input 
               type="date" required
-              className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+              className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200 text-sm"
               value={dateStr} onChange={e => setDateStr(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1">Jumlah (Rp)</label>
+            <label className="block text-xs font-medium text-neutral-400 mb-1">Amount (Rp)</label>
             <input 
               type="text" required inputMode="numeric"
               className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-2xl font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
@@ -245,14 +293,14 @@ export default function TransactionForm({ onClose, initialData = null }) {
           {activeTab !== 'transfer' && (
             <>
               <div className="relative" ref={catRef}>
-                <label className="block text-xs font-medium text-neutral-400 mb-1">Kategori</label>
+                <label className="block text-xs font-medium text-neutral-400 mb-1">Category</label>
                 <input 
                   type="text" required
-                  className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                  className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200 text-sm"
                   value={categoryName} 
                   onChange={(e) => { setCategoryName(e.target.value); setShowCatDropdown(true); setSubcategoryName(''); }}
                   onFocus={() => setShowCatDropdown(true)}
-                  placeholder="Pilih atau ketik baru..." 
+                  placeholder="Select or type new..." 
                 />
                 {showCatDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-neutral-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
@@ -260,7 +308,7 @@ export default function TransactionForm({ onClose, initialData = null }) {
                       <div key={c.id} className="px-4 py-2 hover:bg-neutral-50 cursor-pointer text-sm" onClick={() => { setCategoryName(c.name); setShowCatDropdown(false); }}>{c.name}</div>
                     ))}
                     {categoryName.trim() && !exactCategory && (
-                      <div className="px-4 py-2 hover:bg-neutral-50 cursor-pointer text-sm text-blue-600 font-medium" onClick={() => setShowCatDropdown(false)}>+ Tambah "{categoryName}"</div>
+                      <div className="px-4 py-2 hover:bg-neutral-50 cursor-pointer text-sm text-blue-600 font-medium" onClick={() => setShowCatDropdown(false)}>+ Add "{categoryName}"</div>
                     )}
                   </div>
                 )}
@@ -268,14 +316,14 @@ export default function TransactionForm({ onClose, initialData = null }) {
 
               {categoryName.trim() && (
                 <div className="relative" ref={subcatRef}>
-                  <label className="block text-xs font-medium text-neutral-400 mb-1">Sub Kategori (Opsional)</label>
+                  <label className="block text-xs font-medium text-neutral-400 mb-1">Subcategory (Optional)</label>
                   <input 
                     type="text"
-                    className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                    className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200 text-sm"
                     value={subcategoryName} 
                     onChange={(e) => { setSubcategoryName(e.target.value); setShowSubcatDropdown(true); }}
                     onFocus={() => setShowSubcatDropdown(true)}
-                    placeholder="Pilih atau ketik baru..." 
+                    placeholder="Select or type new..." 
                   />
                   {showSubcatDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-neutral-100 rounded-xl shadow-lg max-h-48 overflow-y-auto">
@@ -283,7 +331,7 @@ export default function TransactionForm({ onClose, initialData = null }) {
                         <div key={sc.id} className="px-4 py-2 hover:bg-neutral-50 cursor-pointer text-sm" onClick={() => { setSubcategoryName(sc.name); setShowSubcatDropdown(false); }}>{sc.name}</div>
                       ))}
                       {subcategoryName.trim() && !filteredSubcategories.find(sc => sc.name.toLowerCase() === subcategoryName.toLowerCase()) && (
-                        <div className="px-4 py-2 hover:bg-neutral-50 cursor-pointer text-sm text-blue-600 font-medium" onClick={() => setShowSubcatDropdown(false)}>+ Tambah "{subcategoryName}"</div>
+                        <div className="px-4 py-2 hover:bg-neutral-50 cursor-pointer text-sm text-blue-600 font-medium" onClick={() => setShowSubcatDropdown(false)}>+ Add "{subcategoryName}"</div>
                       )}
                     </div>
                   )}
@@ -293,42 +341,65 @@ export default function TransactionForm({ onClose, initialData = null }) {
           )}
 
           <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-2">{activeTab === 'transfer' ? 'Akun Asal' : 'Pilih Akun'}</label>
+            <label className="block text-xs font-medium text-neutral-400 mb-1">Notes (Optional)</label>
+            <input 
+              type="text" 
+              className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200 text-sm" 
+              value={note} 
+              onChange={(e) => setNote(e.target.value)} 
+              placeholder="Write description..." 
+            />
+            {noteSuggestions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {noteSuggestions.map((sug, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setNote(sug)}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-medium bg-neutral-100 hover:bg-neutral-200 text-neutral-600 border border-neutral-200 transition-colors"
+                  >
+                    {sug}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-neutral-400 mb-2">{activeTab === 'transfer' ? 'Source Account' : 'Select Account'}</label>
             <div className="flex overflow-x-auto gap-2 pb-2 hide-scrollbar">
-              {accounts.map(acc => (
+              {filteredAccounts.map(acc => (
                 <button key={acc.id} type="button" onClick={() => setAccountId(acc.id)} className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium border transition-colors ${accountId === acc.id ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50'}`}>
                   {acc.name}
                 </button>
               ))}
+              {filteredAccounts.length === 0 && (
+                <span className="text-xs text-neutral-400 italic py-2">No accounts available for you</span>
+              )}
             </div>
           </div>
 
           {activeTab === 'transfer' && (
              <div>
-               <label className="block text-xs font-medium text-neutral-400 mb-2">Akun Tujuan</label>
-               <div className="flex overflow-x-auto gap-2 pb-2 hide-scrollbar">
-                 {accounts.filter(a => a.id !== accountId).map(acc => (
-                   <button key={acc.id} type="button" onClick={() => setDestAccountId(acc.id)} className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium border transition-colors ${destAccountId === acc.id ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50'}`}>
-                     {acc.name}
-                   </button>
-                 ))}
-               </div>
+                <label className="block text-xs font-medium text-neutral-400 mb-2">Destination Account</label>
+                <div className="flex overflow-x-auto gap-2 pb-2 hide-scrollbar">
+                  {filteredAccounts.filter(a => a.id !== accountId).map(acc => (
+                    <button key={acc.id} type="button" onClick={() => setDestAccountId(acc.id)} className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium border transition-colors ${destAccountId === acc.id ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50'}`}>
+                      {acc.name}
+                    </button>
+                  ))}
+                </div>
              </div>
           )}
-
-          <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1">Catatan (Opsional)</label>
-            <input type="text" className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Tulis keterangan..." />
-          </div>
 
           <div className="flex gap-3 pt-2">
             {isEdit && (
               <button type="button" onClick={() => setShowDeleteConfirm(true)} className="flex-1 bg-rose-50 text-rose-600 font-medium rounded-xl px-4 py-3.5 hover:bg-rose-100 transition-colors">
-                Hapus
+                Delete
               </button>
             )}
-            <button type="submit" disabled={accounts.length === 0} className={`${isEdit ? 'flex-[2]' : 'w-full'} bg-neutral-950 text-white font-medium rounded-xl px-4 py-3.5 hover:bg-neutral-800 transition-colors disabled:opacity-50`}>
-              Simpan
+            <button type="submit" disabled={filteredAccounts.length === 0} className={`${isEdit ? 'flex-[2]' : 'w-full'} bg-neutral-950 text-white font-medium rounded-xl px-4 py-3.5 hover:bg-neutral-800 transition-colors disabled:opacity-50`}>
+              Save
             </button>
           </div>
         </form>
@@ -337,9 +408,9 @@ export default function TransactionForm({ onClose, initialData = null }) {
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-[60] bg-neutral-900/40 backdrop-blur-sm flex justify-center items-center p-4">
           <div className="bg-white rounded-3xl p-6 shadow-xl max-w-sm w-full animate-in zoom-in-95 duration-200">
-            <h3 className="text-lg font-bold text-neutral-900 mb-2">Hapus Transaksi?</h3>
+            <h3 className="text-lg font-bold text-neutral-900 mb-2">Delete Transaction?</h3>
             <p className="text-sm text-neutral-500 mb-6">
-              Transaksi ini akan dihapus secara permanen dan saldo Anda akan dikembalikan seperti semula.
+              This transaction will be permanently deleted and your balances will be reverted.
             </p>
             <div className="flex gap-3">
               <button 
@@ -347,14 +418,14 @@ export default function TransactionForm({ onClose, initialData = null }) {
                 onClick={() => setShowDeleteConfirm(false)}
                 className="flex-1 py-3 bg-neutral-100 text-neutral-700 font-medium rounded-xl hover:bg-neutral-200 transition-colors"
               >
-                Batal
+                Cancel
               </button>
               <button 
                 type="button" 
                 onClick={() => { setShowDeleteConfirm(false); handleDelete(); }}
                 className="flex-1 py-3 bg-rose-500 text-white font-medium rounded-xl hover:bg-rose-600 transition-colors shadow-sm"
               >
-                Ya, Hapus
+                Yes, Delete
               </button>
             </div>
           </div>
