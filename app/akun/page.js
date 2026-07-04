@@ -4,16 +4,7 @@ import { AppContext } from "@/components/AppProvider";
 import { supabase } from "@/lib/supabase";
 import { ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from "recharts";
 
-const getValidDbType = (customGroup, accountName) => {
-  const combined = (customGroup + " " + accountName).toLowerCase();
-  if (combined.includes('tunai') || combined.includes('cash') || combined.includes('dompet')) {
-    return 'Tunai';
-  }
-  if (combined.includes('wallet') || combined.includes('gopay') || combined.includes('ovo') || combined.includes('dana') || combined.includes('shopeepay') || combined.includes('linkaja') || combined.includes('pay')) {
-    return 'E-Wallet';
-  }
-  return 'Bank';
-};
+
 
 export default function AkunPage() {
   const { accounts, setAccounts, transactions } = useContext(AppContext);
@@ -98,8 +89,8 @@ export default function AkunPage() {
     if (!finalType) return alert("Kelompok akun tidak boleh kosong.");
     
     const balanceNum = Number(balance.replace(/\./g, '')) || 0;
-    const dbName = `${finalType} // ${name.trim()}`;
-    const dbType = getValidDbType(finalType, name.trim());
+    const dbName = name.trim();
+    const dbType = finalType;
     
     if (editData) {
       const updatedAccount = { ...editData, name: name.trim(), type: finalType, balance: balanceNum };
