@@ -110,14 +110,29 @@ export default function RangkumanPage() {
     setExpandedCats(prev => ({ ...prev, [catId]: !prev[catId] }));
   };
 
-  const expandAll = () => {
-    const all = {};
-    filteredCategories.forEach(c => all[c.id] = true);
-    setExpandedCats(all);
-  };
+  const displayedCategoriesWithSubs = useMemo(() => {
+    return filteredCategories.map(cat => {
+      const catSpent = expensesByCategory[cat.name] || 0;
+      const subs = subcategories.filter(sc => sc.category_id === cat.id);
+      return { ...cat, spent: catSpent, subs };
+    })
+    .filter(cat => cat.spent > 0 || cat.subs.some(s => (expensesByCategory[s.name] || 0) > 0))
+    .filter(cat => cat.subs.length > 0);
+  }, [filteredCategories, expensesByCategory, subcategories]);
 
-  const collapseAll = () => {
-    setExpandedCats({});
+  const isAllExpanded = useMemo(() => {
+    return displayedCategoriesWithSubs.length > 0 && 
+           displayedCategoriesWithSubs.every(cat => expandedCats[cat.id]);
+  }, [displayedCategoriesWithSubs, expandedCats]);
+
+  const toggleExpandAll = () => {
+    if (isAllExpanded) {
+      setExpandedCats({});
+    } else {
+      const all = {};
+      displayedCategoriesWithSubs.forEach(c => all[c.id] = true);
+      setExpandedCats(all);
+    }
   };
 
   const handleSubClick = (subName) => {
@@ -129,10 +144,13 @@ export default function RangkumanPage() {
     const percentage = (spent / limit) * 100;
     const isWarning = percentage >= 80;
     const isDanger = percentage >= 100;
+    const remaining = limit - spent;
     return (
       <div className="w-full mt-2">
         <div className="flex justify-between text-[10px] font-medium mb-1">
-          <span className="text-neutral-400">Terpakai: Rp {spent.toLocaleString('id-ID')}</span>
+          <span className={remaining < 0 ? "text-rose-500 font-semibold" : "text-neutral-500 font-medium"}>
+            {remaining < 0 ? `Over: Rp ${Math.abs(remaining).toLocaleString('id-ID')}` : `Sisa: Rp ${remaining.toLocaleString('id-ID')}`}
+          </span>
           <span className={`font-semibold ${isDanger ? 'text-rose-600' : isWarning ? 'text-amber-600' : 'text-neutral-600'}`}>
             {percentage.toFixed(0)}% dari Rp {limit.toLocaleString('id-ID')}
           </span>
@@ -187,48 +205,52 @@ export default function RangkumanPage() {
         </Link>
       </div>
 
-      {/* Period Tabs */}
-      <div className="flex bg-neutral-100 p-1 rounded-xl mb-4">
-        {['Harian', 'Mingguan', 'Bulanan'].map(p => (
-          <button
-            key={p} type="button"
-            onClick={() => setPeriodFilter(p)}
-            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-              periodFilter === p 
-                ? 'bg-white text-neutral-900 shadow-sm'
-                : 'text-neutral-500 hover:text-neutral-900'
-            }`}
-          >
-            {p}
-          </button>
-        ))}
-      </div>
-
-      {/* Date Filter */}
-      <div className="flex items-center justify-between bg-white border border-neutral-100 rounded-2xl p-2 mb-6 shadow-sm">
-        <button onClick={handlePrev} className="p-2 hover:bg-neutral-100 rounded-xl transition-colors">
-          <ChevronLeft size={20} className="text-neutral-600" />
+      {/* Date Navigation (Simple inline) */}
+      <div className="flex items-center justify-center gap-4 mb-6">
+        <button onClick={handlePrev} className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-600 transition-colors">
+          <ChevronLeft size={16} />
         </button>
-        <span className="font-medium text-neutral-800 capitalize text-sm">{displayDateStr}</span>
-        <button onClick={handleNext} className="p-2 hover:bg-neutral-100 rounded-xl transition-colors">
-          <ChevronRight size={20} className="text-neutral-600" />
+        <span className="font-bold text-neutral-800 capitalize text-sm select-none min-w-[130px] text-center">{displayDateStr}</span>
+        <button onClick={handleNext} className="p-1.5 hover:bg-neutral-100 rounded-lg text-neutral-600 transition-colors">
+          <ChevronRight size={16} />
         </button>
       </div>
 
-      <div className="flex bg-neutral-100 p-1 rounded-xl mb-6">
-        {['pengeluaran', 'pemasukan'].map(tab => (
-          <button
-            key={tab} type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 text-sm font-medium rounded-lg capitalize transition-colors ${
-              activeTab === tab 
-                ? (tab === 'pengeluaran' ? 'bg-rose-500 text-white shadow-sm' : 'bg-emerald-500 text-white shadow-sm')
-                : 'text-neutral-500 hover:text-neutral-900'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
+      {/* Filters in 1 Row */}
+      <div className="flex gap-3 mb-6">
+        {/* Type selector */}
+        <div className="flex-1 flex bg-neutral-100 p-0.5 rounded-lg border border-neutral-200">
+          {['pengeluaran', 'pemasukan'].map(tab => (
+            <button
+              key={tab} type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors capitalize ${
+                activeTab === tab 
+                  ? (tab === 'pengeluaran' ? 'bg-rose-500 text-white shadow-sm' : 'bg-emerald-500 text-white shadow-sm')
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              {tab === 'pengeluaran' ? 'Keluar' : 'Masuk'}
+            </button>
+          ))}
+        </div>
+        
+        {/* Period selector */}
+        <div className="flex-[1.2] flex bg-neutral-100 p-0.5 rounded-lg border border-neutral-200">
+          {['Harian', 'Mingguan', 'Bulanan'].map(p => (
+            <button
+              key={p} type="button"
+              onClick={() => setPeriodFilter(p)}
+              className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                periodFilter === p 
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-5 mb-6">
@@ -271,11 +293,14 @@ export default function RangkumanPage() {
       <div className="space-y-4">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">Rincian Per Kategori</h2>
-          <div className="flex gap-2">
-            <button onClick={expandAll} className="text-[10px] font-medium text-neutral-500 hover:text-neutral-900">Buka Semua</button>
-            <span className="text-neutral-300">|</span>
-            <button onClick={collapseAll} className="text-[10px] font-medium text-neutral-500 hover:text-neutral-900">Tutup Semua</button>
-          </div>
+          {displayedCategoriesWithSubs.length > 0 && (
+            <button 
+              onClick={toggleExpandAll} 
+              className="text-[10px] font-semibold text-neutral-500 hover:text-neutral-900 bg-neutral-100 px-2.5 py-1 rounded-lg border border-neutral-200 transition-colors"
+            >
+              {isAllExpanded ? 'Tutup Semua' : 'Buka Semua'}
+            </button>
+          )}
         </div>
         
         {(() => {
