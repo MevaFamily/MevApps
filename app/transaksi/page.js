@@ -11,6 +11,7 @@ function TransaksiContent() {
   const categories = useAppStore(state => state.categories);
   const subcategories = useAppStore(state => state.subcategories);
   const budgets = useAppStore(state => state.budgets);
+  const recurringBills = useAppStore(state => state.recurringBills);
   const hasMoreTransactions = useAppStore(state => state.hasMoreTransactions);
   const isLoadingMore = useAppStore(state => state.isLoadingMore);
   const fetchMoreTransactions = useAppStore(state => state.fetchMoreTransactions);
@@ -152,6 +153,28 @@ function TransaksiContent() {
     }
   });
 
+  // Calculate due bills
+  const realToday = new Date();
+  const isCurrentMonth = currentDate.getMonth() === realToday.getMonth() && currentDate.getFullYear() === realToday.getFullYear();
+  
+  const unpaidBills = [];
+  if (isCurrentMonth && recurringBills) {
+    const currentDay = realToday.getDate();
+    recurringBills.forEach(bill => {
+      if (currentDay >= bill.due_date) {
+        const hasPaid = transactions.some(tx => 
+          tx.type === 'pengeluaran' && 
+          tx.date.startsWith(monthKey) && 
+          tx.category === bill.category && 
+          (bill.subcategory ? tx.subcategory === bill.subcategory : true)
+        );
+        if (!hasPaid) {
+          unpaidBills.push(bill);
+        }
+      }
+    });
+  }
+
   // Group by date
   const groupedTransactions = filteredTx.reduce((acc, tx) => {
     if (!acc[tx.date]) acc[tx.date] = [];
@@ -216,6 +239,36 @@ function TransaksiContent() {
           <svg className="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>
         </div>
       </div>
+
+      {unpaidBills.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-sm font-bold text-neutral-900 tracking-tight">Tagihan Belum Dibayar</h2>
+            <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{unpaidBills.length}</span>
+            <p className="text-[10px] text-rose-500 ml-auto font-medium animate-pulse">Lewat Jatuh Tempo</p>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
+            {unpaidBills.map(bill => (
+              <div 
+                key={bill.id}
+                onClick={() => setSelectedTx({ isQuickAdd: true, type: 'pengeluaran', category: bill.category, subcategory: bill.subcategory, amount: bill.expected_amount })}
+                className="shrink-0 snap-start bg-rose-50 border border-rose-100 rounded-xl p-3 w-44 shadow-sm cursor-pointer hover:border-rose-300 hover:shadow-md transition-all group"
+              >
+                <p className="text-xs font-semibold text-rose-900 truncate mb-1">
+                  {bill.category} {bill.subcategory && <span className="font-normal text-[10px]">({bill.subcategory})</span>}
+                </p>
+                <p className="text-[10px] text-rose-600 mb-2 truncate">Jatuh tempo tgl {bill.due_date}</p>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs font-bold text-rose-600">Rp {Number(bill.expected_amount).toLocaleString('id-ID')}</p>
+                  <div className="w-5 h-5 rounded-full bg-rose-200 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-colors text-rose-600">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {unfilledBudgets.length > 0 && (
         <div className="mb-8">

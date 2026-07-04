@@ -11,6 +11,7 @@ export default function HubPage() {
   };
 
   const tools = [
+    { name: 'Tagihan Rutin', icon: '🗓️', desc: 'Pengingat otomatis bulanan', route: '/langganan' },
     { name: 'Daftar Aset', icon: '🏠', desc: 'Manajemen aset rumah tangga' },
     { name: 'Servis Kendaraan', icon: '🚗', desc: 'Jadwal dan riwayat servis' },
     { name: 'Catatan Anak', icon: '👶', desc: 'Perkembangan dan vaksinasi' },
@@ -35,7 +36,11 @@ export default function HubPage() {
 
       <div className="grid grid-cols-2 gap-4">
         {tools.map((tool, idx) => (
-          <div key={idx} className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-4 hover:shadow-md transition-shadow cursor-pointer flex flex-col items-center justify-center text-center">
+          <div 
+            key={idx} 
+            onClick={() => tool.route ? window.location.href = tool.route : alert('Fitur segera hadir')}
+            className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-4 hover:shadow-md transition-shadow cursor-pointer flex flex-col items-center justify-center text-center"
+          >
             <span className="text-3xl mb-3">{tool.icon}</span>
             <h3 className="font-medium text-neutral-800 text-sm">{tool.name}</h3>
             <p className="text-[10px] text-neutral-400 mt-1 leading-tight">{tool.desc}</p>

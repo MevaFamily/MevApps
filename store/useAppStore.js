@@ -9,6 +9,7 @@ const useAppStore = create((set, get) => ({
   budgets: [],
   categories: [],
   subcategories: [],
+  recurringBills: [],
   hasMoreTransactions: true,
   isLoadingMore: false,
 
@@ -33,6 +34,10 @@ const useAppStore = create((set, get) => ({
   
   setSubcategories: (subcategoriesOrUpdater) => set((state) => ({ 
     subcategories: typeof subcategoriesOrUpdater === 'function' ? subcategoriesOrUpdater(state.subcategories) : subcategoriesOrUpdater 
+  })),
+
+  setRecurringBills: (billsOrUpdater) => set((state) => ({
+    recurringBills: typeof billsOrUpdater === 'function' ? billsOrUpdater(state.recurringBills) : billsOrUpdater
   })),
 
   setHasMoreTransactions: (val) => set({ hasMoreTransactions: val }),
@@ -84,6 +89,7 @@ const useAppStore = create((set, get) => ({
     budgets: [],
     categories: [],
     subcategories: [],
+    recurringBills: [],
     loading: false,
     hasMoreTransactions: true,
     isLoadingMore: false

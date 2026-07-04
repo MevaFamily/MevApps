@@ -12,6 +12,7 @@ export default function AppProvider({ children }) {
   const setLoading = useAppStore(state => state.setLoading);
   const setSession = useAppStore(state => state.setSession);
   const session = useAppStore(state => state.session);
+  const setRecurringBills = useAppStore(state => state.setRecurringBills);
   const setHasMoreTransactions = useAppStore(state => state.setHasMoreTransactions);
 
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function AppProvider({ children }) {
         setBudgets([]);
         setCategories([]);
         setSubcategories([]);
+        setRecurringBills([]);
         setLoading(false);
       }
     });
@@ -49,12 +51,13 @@ export default function AppProvider({ children }) {
     // Initial Fetch (Single Fetch Pattern)
     async function fetchData() {
       try {
-        const [accRes, txRes, bdgRes, catRes, subcatRes] = await Promise.all([
+        const [accRes, txRes, bdgRes, catRes, subcatRes, recurringBillsRes] = await Promise.all([
           supabase.from("accounts").select("*").order("created_at", { ascending: true }),
           supabase.from("transactions").select("*").order("date", { ascending: false }).range(0, 49),
           supabase.from("budgets").select("*"),
           supabase.from("categories").select("*").order("name", { ascending: true }),
-          supabase.from("subcategories").select("*").order("name", { ascending: true })
+          supabase.from("subcategories").select("*").order("name", { ascending: true }),
+          supabase.from("recurring_bills").select("*").order("due_date", { ascending: true })
         ]);
 
         if (accRes.data) {
@@ -84,6 +87,7 @@ export default function AppProvider({ children }) {
         if (bdgRes.data) setBudgets(bdgRes.data);
         if (catRes.data) setCategories(catRes.data);
         if (subcatRes.data) setSubcategories(subcatRes.data);
+        if (recurringBillsRes && recurringBillsRes.data) setRecurringBills(recurringBillsRes.data);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
