@@ -113,6 +113,45 @@ function TransaksiContent() {
   const isOverBudget = budgetDiff < 0;
   const absDiff = Math.abs(budgetDiff);
 
+  // Calculate unfilled budgets for quick add
+  const expensesByCategoryAndSub = transactions
+    .filter(tx => tx.type === 'pengeluaran' && tx.date.startsWith(monthKey))
+    .reduce((acc, tx) => {
+      const catKey = tx.category;
+      const subKey = tx.subcategory;
+      if (catKey) acc[catKey] = (acc[catKey] || 0) + Number(tx.amount);
+      if (subKey) acc[`${catKey}::${subKey}`] = (acc[`${catKey}::${subKey}`] || 0) + Number(tx.amount);
+      return acc;
+    }, {});
+
+  const unfilledBudgets = [];
+  expensesCategories.forEach(cat => {
+    const subs = subcategories.filter(sc => sc.category_id === cat.id);
+    if (subs.length === 0) {
+      const b = budgets.find(b => b.category === cat.id && b.month === monthKey);
+      if (b) {
+        const spent = expensesByCategoryAndSub[cat.name] || 0;
+        const limit = Number(b.amount_limit);
+        const remaining = limit - spent;
+        if (remaining > 0) {
+          unfilledBudgets.push({ id: cat.id, category: cat.name, subcategory: '', remaining });
+        }
+      }
+    } else {
+      subs.forEach(s => {
+        const b = budgets.find(b => b.category === s.id && b.month === monthKey);
+        if (b) {
+          const spent = expensesByCategoryAndSub[`${cat.name}::${s.name}`] || 0;
+          const limit = Number(b.amount_limit);
+          const remaining = limit - spent;
+          if (remaining > 0) {
+            unfilledBudgets.push({ id: s.id, category: cat.name, subcategory: s.name, remaining });
+          }
+        }
+      });
+    }
+  });
+
   // Group by date
   const groupedTransactions = filteredTx.reduce((acc, tx) => {
     if (!acc[tx.date]) acc[tx.date] = [];
@@ -177,6 +216,36 @@ function TransaksiContent() {
           <svg className="w-6 h-6 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" /></svg>
         </div>
       </div>
+
+      {unfilledBudgets.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <h2 className="text-sm font-bold text-neutral-900 tracking-tight">Anggaran Tersisa</h2>
+            <span className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{unfilledBudgets.length}</span>
+            <p className="text-[10px] text-neutral-400 ml-auto">Pilih untuk catat cepat</p>
+          </div>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x">
+            {unfilledBudgets.map(ub => (
+              <div 
+                key={ub.id}
+                onClick={() => setSelectedTx({ isQuickAdd: true, type: 'pengeluaran', category: ub.category, subcategory: ub.subcategory, amount: ub.remaining })}
+                className="shrink-0 snap-start bg-white border border-neutral-100 rounded-xl p-3 w-44 shadow-sm cursor-pointer hover:border-rose-300 hover:shadow-md transition-all group"
+              >
+                <p className="text-xs font-semibold text-neutral-900 truncate mb-1 group-hover:text-rose-600 transition-colors">
+                  {ub.category} {ub.subcategory && <span className="text-neutral-400 font-normal text-[10px]">({ub.subcategory})</span>}
+                </p>
+                <p className="text-[10px] text-neutral-400 mb-2 truncate">Sisa dana bulan ini</p>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs font-bold text-rose-500">Rp {ub.remaining.toLocaleString('id-ID')}</p>
+                  <div className="w-5 h-5 rounded-full bg-neutral-50 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-colors text-neutral-400">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* List Transaksi per Tanggal */}
       <div className="space-y-8">

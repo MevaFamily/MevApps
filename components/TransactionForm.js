@@ -14,7 +14,7 @@ export default function TransactionForm({ onClose, initialData = null }) {
   const setAccounts = useAppStore(state => state.setAccounts);
   const setCategories = useAppStore(state => state.setCategories);
   const setSubcategories = useAppStore(state => state.setSubcategories);
-  const isEdit = !!initialData;
+  const isEdit = !!initialData && !initialData.isQuickAdd;
 
   const userEmail = session?.user?.email || "";
   const username = userEmail.split('@')[0].toLowerCase(); // e.g. "ivan" or "melin"
