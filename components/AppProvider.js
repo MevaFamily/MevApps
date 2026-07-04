@@ -56,8 +56,25 @@ export default function AppProvider({ children }) {
           supabase.from("subcategories").select("*").order("name", { ascending: true })
         ]);
 
-        if (accRes.data) setAccounts(accRes.data);
-        if (txRes.data) setTransactions(txRes.data);
+        if (accRes.data) {
+          const parsedAccounts = accRes.data.map(acc => {
+            if (acc.name && acc.name.includes(' // ')) {
+              const [group, displayName] = acc.name.split(' // ');
+              return { ...acc, name: displayName, type: group };
+            }
+            return acc;
+          });
+          setAccounts(parsedAccounts);
+        }
+        if (txRes.data) {
+          const parsedTransactions = txRes.data.map(tx => {
+            if (tx.account_name && tx.account_name.includes(' // ')) {
+              tx.account_name = tx.account_name.split(' // ')[1];
+            }
+            return tx;
+          });
+          setTransactions(parsedTransactions);
+        }
         if (bdgRes.data) setBudgets(bdgRes.data);
         if (catRes.data) setCategories(catRes.data);
         if (subcatRes.data) setSubcategories(subcatRes.data);
@@ -75,10 +92,14 @@ export default function AppProvider({ children }) {
       .channel('public:transactions')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, payload => {
         if (payload.eventType === 'INSERT') {
+          let inserted = payload.new;
+          if (inserted.account_name && inserted.account_name.includes(' // ')) {
+            inserted.account_name = inserted.account_name.split(' // ')[1];
+          }
           setTransactions(prev => {
-            const exists = prev.find(t => t.id === payload.new.id);
+            const exists = prev.find(t => t.id === inserted.id);
             if (exists) return prev;
-            return [payload.new, ...prev.filter(t => typeof t.id !== 'string' || !t.id.startsWith('temp-'))];
+            return [inserted, ...prev.filter(t => typeof t.id !== 'string' || !t.id.startsWith('temp-'))];
           });
         }
       })
@@ -87,8 +108,23 @@ export default function AppProvider({ children }) {
     const accChannel = supabase
       .channel('public:accounts')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'accounts' }, payload => {
-        if (payload.eventType === 'UPDATE') {
-          setAccounts(prev => prev.map(a => a.id === payload.new.id ? payload.new : a));
+        if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+          let item = payload.new;
+          if (item.name && item.name.includes(' // ')) {
+            const [group, displayName] = item.name.split(' // ');
+            item = { ...item, name: displayName, type: group };
+          }
+          setAccounts(prev => {
+            if (payload.eventType === 'UPDATE') {
+              return prev.map(a => a.id === item.id ? item : a);
+            } else {
+              const exists = prev.find(a => a.id === item.id);
+              if (exists) return prev;
+              return [...prev, item];
+            }
+          });
+        } else if (payload.eventType === 'DELETE') {
+          setAccounts(prev => prev.filter(a => a.id !== payload.old.id));
         }
       })
       .subscribe();

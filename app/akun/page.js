@@ -4,6 +4,17 @@ import { AppContext } from "@/components/AppProvider";
 import { supabase } from "@/lib/supabase";
 import { ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from "recharts";
 
+const getValidDbType = (customGroup, accountName) => {
+  const combined = (customGroup + " " + accountName).toLowerCase();
+  if (combined.includes('tunai') || combined.includes('cash') || combined.includes('dompet')) {
+    return 'Tunai';
+  }
+  if (combined.includes('wallet') || combined.includes('gopay') || combined.includes('ovo') || combined.includes('dana') || combined.includes('shopeepay') || combined.includes('linkaja') || combined.includes('pay')) {
+    return 'E-Wallet';
+  }
+  return 'Bank';
+};
+
 export default function AkunPage() {
   const { accounts, setAccounts, transactions } = useContext(AppContext);
   const [showModal, setShowModal] = useState(false);
@@ -87,6 +98,8 @@ export default function AkunPage() {
     if (!finalType) return alert("Kelompok akun tidak boleh kosong.");
     
     const balanceNum = Number(balance.replace(/\./g, '')) || 0;
+    const dbName = `${finalType} // ${name.trim()}`;
+    const dbType = getValidDbType(finalType, name.trim());
     
     if (editData) {
       const updatedAccount = { ...editData, name: name.trim(), type: finalType, balance: balanceNum };
@@ -94,10 +107,15 @@ export default function AkunPage() {
       setShowModal(false);
 
       try {
-        await supabase.from('accounts').update({
-          name: updatedAccount.name, type: updatedAccount.type, balance: updatedAccount.balance
+        const { error } = await supabase.from('accounts').update({
+          name: dbName, type: dbType, balance: balanceNum
         }).eq('id', editData.id);
+        if (error) {
+          alert("Gagal memperbarui akun di database: " + error.message);
+          console.error("Supabase error:", error);
+        }
       } catch(err) {
+        alert("Terjadi kesalahan jaringan saat memperbarui akun.");
         console.error(err);
       }
     } else {
@@ -107,10 +125,15 @@ export default function AkunPage() {
       setShowModal(false);
 
       try {
-        await supabase.from('accounts').insert([{
-          id: newAccount.id, name: newAccount.name, type: newAccount.type, balance: newAccount.balance
+        const { error } = await supabase.from('accounts').insert([{
+          id: newAccount.id, name: dbName, type: dbType, balance: balanceNum
         }]);
+        if (error) {
+          alert("Gagal menambahkan akun ke database: " + error.message);
+          console.error("Supabase error:", error);
+        }
       } catch(err) {
+        alert("Terjadi kesalahan jaringan saat menambahkan akun.");
         console.error(err);
       }
     }
@@ -124,8 +147,13 @@ export default function AkunPage() {
     setShowModal(false);
 
     try {
-      await supabase.from('accounts').delete().eq('id', editData.id);
+      const { error } = await supabase.from('accounts').delete().eq('id', editData.id);
+      if (error) {
+        alert("Gagal menghapus akun di database: " + error.message);
+        console.error("Supabase error:", error);
+      }
     } catch(err) {
+      alert("Terjadi kesalahan jaringan saat menghapus akun.");
       console.error(err);
     }
   };

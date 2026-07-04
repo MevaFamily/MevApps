@@ -67,7 +67,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm bg-white rounded-3xl border border-neutral-100 p-8 shadow-sm">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold tracking-tight text-neutral-900">MevApps</h1>
-          <p className="text-sm text-neutral-400 mt-2">Masuk ke Hub Keuangan Rumah</p>
+          <p className="text-sm text-neutral-400 mt-2">Aplikasi Rumah Milik Keluarga Meva</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-5">
@@ -78,14 +78,14 @@ export default function LoginPage() {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Username / Email</label>
+            <label className="block text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-2">Username</label>
             <input
               type="text"
               required
               className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3.5 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200 transition-all text-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="ivan atau ivan@meva.com"
+              placeholder=""
             />
           </div>
 
@@ -118,7 +118,7 @@ export default function LoginPage() {
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
               />
-              <span className="text-xs text-neutral-500 font-medium">Ingat Saya</span>
+              <span className="text-xs text-neutral-500 font-medium">Remember Me</span>
             </label>
           </div>
 
