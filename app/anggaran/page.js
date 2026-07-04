@@ -24,6 +24,12 @@ export default function AnggaranPage() {
   const [expandedCats, setExpandedCats] = useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // States for integrated Recurring Bills
+  const recurringBills = useAppStore(state => state.recurringBills);
+  const setRecurringBills = useAppStore(state => state.setRecurringBills);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [dueDate, setDueDate] = useState("");
+
   const filteredCategories = categories.filter(c => c.type === activeTab);
 
   const currentDate = new Date();
@@ -80,6 +86,12 @@ export default function AnggaranPage() {
     setModalType('category');
     setEditItem(cat);
     setInputValue(cat.name);
+    
+    // Check if recurring
+    const rb = recurringBills.find(b => b.category === cat.name && !b.subcategory);
+    setIsRecurring(!!rb);
+    setDueDate(rb ? String(rb.due_date) : "");
+
     if (subs.length === 0) {
       const b = budgets.find(b => b.category === cat.id && b.month === monthKey);
       setBudgetLimitStr(b ? b.amount_limit.toLocaleString('id-ID') : "");
@@ -100,6 +112,13 @@ export default function AnggaranPage() {
     setModalType('subcategory');
     setEditItem(subcat);
     setInputValue(subcat.name);
+
+    // Check if recurring
+    const parentCat = categories.find(c => c.id === subcat.category_id);
+    const rb = recurringBills.find(b => b.category === parentCat?.name && b.subcategory === subcat.name);
+    setIsRecurring(!!rb);
+    setDueDate(rb ? String(rb.due_date) : "");
+
     const b = budgets.find(b => b.category === subcat.id && b.month === monthKey);
     setBudgetLimitStr(b ? b.amount_limit.toLocaleString('id-ID') : "");
   };
@@ -111,6 +130,8 @@ export default function AnggaranPage() {
     setInputValue("");
     setBudgetLimitStr("");
     setShowDeleteConfirm(false);
+    setIsRecurring(false);
+    setDueDate("");
   };
 
   const handleAmountChange = (e) => {
@@ -132,6 +153,39 @@ export default function AnggaranPage() {
     }
   };
 
+  const handleRecurringSave = async (catName, subcatName, amount, oldCatName, oldSubcatName) => {
+    if (activeTab !== 'pengeluaran') return;
+
+    const existing = recurringBills.find(b => 
+      b.category === (oldCatName || catName) && 
+      (oldSubcatName || subcatName ? b.subcategory === (oldSubcatName || subcatName) : !b.subcategory)
+    );
+
+    if (isRecurring) {
+      const dueDateNum = Number(dueDate);
+      const payload = {
+        category: catName,
+        subcategory: subcatName || null,
+        due_date: dueDateNum,
+        expected_amount: amount
+      };
+
+      if (existing) {
+        setRecurringBills(prev => prev.map(b => b.id === existing.id ? { ...b, ...payload } : b));
+        await supabase.from('recurring_bills').update(payload).eq('id', existing.id);
+      } else {
+        const newBill = { id: crypto.randomUUID(), ...payload };
+        setRecurringBills(prev => [...prev, newBill].sort((a,b) => a.due_date - b.due_date));
+        await supabase.from('recurring_bills').insert([newBill]);
+      }
+    } else {
+      if (existing) {
+        setRecurringBills(prev => prev.filter(b => b.id !== existing.id));
+        await supabase.from('recurring_bills').delete().eq('id', existing.id);
+      }
+    }
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
@@ -139,8 +193,21 @@ export default function AnggaranPage() {
     const name = inputValue.trim();
     const budgetNum = Number(budgetLimitStr.replace(/\./g, '')) || 0;
 
+    if (activeTab === 'pengeluaran' && isRecurring) {
+      if (budgetNum <= 0) {
+        alert("Nominal budget harus diisi untuk tagihan rutin!");
+        return;
+      }
+      const dueDateNum = Number(dueDate);
+      if (!dueDateNum || dueDateNum < 1 || dueDateNum > 31) {
+        alert("Tanggal jatuh tempo harus antara 1-31!");
+        return;
+      }
+    }
+
     if (modalType === 'category') {
       let finalCatId;
+      let oldName = editItem ? editItem.name : "";
       if (editItem) {
         finalCatId = editItem.id;
         setCategories(prev => prev.map(c => c.id === editItem.id ? { ...c, name } : c));
@@ -153,11 +220,14 @@ export default function AnggaranPage() {
       }
       
       const subs = subcategories.filter(sc => sc.category_id === finalCatId);
-      if (subs.length === 0 && budgetNum > 0) {
+      if (subs.length === 0) {
         await saveBudget(finalCatId, budgetNum);
+        await handleRecurringSave(name, null, budgetNum, oldName, null);
       }
     } else if (modalType === 'subcategory') {
       let finalSubId;
+      let oldName = editItem ? editItem.name : "";
+      const parentCat = editItem ? categories.find(c => c.id === editItem.category_id) : parentCategory;
       if (editItem) {
         finalSubId = editItem.id;
         setSubcategories(prev => prev.map(sc => sc.id === editItem.id ? { ...sc, name } : sc));
@@ -168,9 +238,8 @@ export default function AnggaranPage() {
         setSubcategories(prev => [...prev, newSubcat].sort((a,b) => a.name.localeCompare(b.name)));
         try { await supabase.from('subcategories').insert([newSubcat]); } catch (err) {}
       }
-      if (budgetNum > 0) {
-        await saveBudget(finalSubId, budgetNum);
-      }
+      await saveBudget(finalSubId, budgetNum);
+      await handleRecurringSave(parentCat.name, name, budgetNum, parentCat.name, oldName);
     }
     closeModal();
   };
@@ -178,12 +247,33 @@ export default function AnggaranPage() {
   const confirmDelete = async () => {
     if (!editItem) return;
 
+    let catName = "";
+    let subcatName = "";
+
     if (modalType === 'category') {
+      catName = editItem.name;
       setCategories(prev => prev.filter(c => c.id !== editItem.id));
       try { await supabase.from('categories').delete().eq('id', editItem.id); } catch (err) {}
+
+      const existing = recurringBills.find(b => b.category === catName && !b.subcategory);
+      if (existing) {
+        setRecurringBills(prev => prev.filter(b => b.id !== existing.id));
+        await supabase.from('recurring_bills').delete().eq('id', existing.id);
+      }
+      setRecurringBills(prev => prev.filter(b => b.category !== catName));
     } else {
+      subcatName = editItem.name;
+      const parentCat = categories.find(c => c.id === editItem.category_id);
+      catName = parentCat ? parentCat.name : "";
+
       setSubcategories(prev => prev.filter(sc => sc.id !== editItem.id));
       try { await supabase.from('subcategories').delete().eq('id', editItem.id); } catch (err) {}
+
+      const existing = recurringBills.find(b => b.category === catName && b.subcategory === subcatName);
+      if (existing) {
+        setRecurringBills(prev => prev.filter(b => b.id !== existing.id));
+        await supabase.from('recurring_bills').delete().eq('id', existing.id);
+      }
     }
     setShowDeleteConfirm(false);
     closeModal();
@@ -380,18 +470,58 @@ export default function AnggaranPage() {
               </div>
 
               {activeTab === 'pengeluaran' && (modalType === 'subcategory' || (modalType === 'category' && (!editItem || subcategories.filter(sc => sc.category_id === editItem?.id).length === 0))) && (
-                <div>
-                  <label className="block text-xs font-medium text-neutral-400 mb-1">Batas Budget Bulan Ini (Opsional)</label>
-                  <input 
-                    type="text" inputMode="numeric"
-                    className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
-                    value={budgetLimitStr} onChange={handleAmountChange}
-                    placeholder={`Masukkan angka (Rp)...`}
-                  />
-                  {modalType === 'category' && (
-                    <p className="text-[10px] text-neutral-400 mt-1">Jika kategori ini ditambahkan sub kategori nantinya, pengaturan budget utama akan dimatikan dan bergantung pada sub kategori.</p>
-                  )}
-                </div>
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-400 mb-1">Batas Budget Bulan Ini (Opsional)</label>
+                    <input 
+                      type="text" inputMode="numeric"
+                      className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                      value={budgetLimitStr} onChange={handleAmountChange}
+                      placeholder={`Masukkan angka (Rp)...`}
+                    />
+                    {modalType === 'category' && (
+                      <p className="text-[10px] text-neutral-400 mt-1">Jika kategori ini ditambahkan sub kategori nantinya, pengaturan budget utama akan dimatikan dan bergantung pada sub kategori.</p>
+                    )}
+                  </div>
+
+                  <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-100 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox"
+                        id="isRecurring"
+                        checked={isRecurring}
+                        onChange={(e) => setIsRecurring(e.target.checked)}
+                        className="w-4 h-4 text-neutral-950 border-neutral-300 rounded focus:ring-neutral-950 focus:ring-2"
+                      />
+                      <label htmlFor="isRecurring" className="text-xs font-semibold text-neutral-600 cursor-pointer select-none">
+                        Jadikan Tagihan Rutin Bulanan
+                      </label>
+                    </div>
+
+                    {isRecurring && (
+                      <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                        <label className="block text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">Tanggal Jatuh Tempo (1-31)</label>
+                        <input 
+                          type="text"
+                          inputMode="numeric"
+                          value={dueDate}
+                          onChange={(e) => {
+                            let val = e.target.value.replace(/[^0-9]/g, '');
+                            if (val !== "") {
+                              let num = parseInt(val, 10);
+                              if (num > 31) val = "31";
+                              if (num < 1) val = "1";
+                            }
+                            setDueDate(val);
+                          }}
+                          placeholder="Contoh: 5"
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-neutral-900 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                          required={isRecurring}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
 
               <div className="flex gap-3 pt-2">

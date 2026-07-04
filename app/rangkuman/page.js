@@ -15,7 +15,6 @@ export default function RangkumanPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [expandedCats, setExpandedCats] = useState({});
   const [periodFilter, setPeriodFilter] = useState("Bulanan"); // Harian, Mingguan, Bulanan
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const router = useRouter();
 
   const handlePrev = () => {
@@ -201,27 +200,9 @@ export default function RangkumanPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Rangkuman</h1>
           <p className="text-sm text-neutral-400 capitalize">Statistik Bulanan</p>
         </div>
-        <div className="relative">
-          <button 
-            onClick={() => setShowSettingsMenu(!showSettingsMenu)} 
-            className="p-2 bg-neutral-100 text-neutral-700 rounded-full hover:bg-neutral-200 transition-colors"
-          >
-            <Settings size={20} />
-          </button>
-          {showSettingsMenu && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setShowSettingsMenu(false)}></div>
-              <div className="absolute right-0 mt-2 w-44 bg-white rounded-2xl shadow-lg border border-neutral-100 z-50 overflow-hidden">
-                <Link href="/anggaran" className="block px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-indigo-600 font-semibold border-b border-neutral-50 transition-colors">
-                  Budget Bulanan
-                </Link>
-                <Link href="/langganan" className="block px-4 py-3 text-sm text-neutral-700 hover:bg-neutral-50 hover:text-indigo-600 font-semibold transition-colors">
-                  Tagihan Rutin
-                </Link>
-              </div>
-            </>
-          )}
-        </div>
+        <Link href="/anggaran" className="p-2 bg-neutral-100 text-neutral-700 rounded-full hover:bg-neutral-200 transition-colors">
+          <Settings size={20} />
+        </Link>
       </div>
 
       {/* Date Navigation (Simple inline) */}
