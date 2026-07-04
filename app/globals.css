@@ -1,1 +1,48 @@
 @import "tailwindcss";
+
+@theme {
+  /* Minimalist, Clean, and Soft Palette Override */
+  
+  /* Soft Coral Pink (Rose) */
+  --color-rose-50: #FDF3F4;
+  --color-rose-100: #FCE1E4;
+  --color-rose-200: #F8C3CA;
+  --color-rose-300: #F5A5B0;
+  --color-rose-400: #F18D9A;
+  --color-rose-500: #E96A7A;
+  --color-rose-600: #CE4C5D;
+  --color-rose-700: #A83645;
+
+  /* Soft Pastel Green (Emerald) */
+  --color-emerald-50: #F2FBF6;
+  --color-emerald-100: #DFF5E8;
+  --color-emerald-200: #BDF0D4;
+  --color-emerald-300: #9CEAC0;
+  --color-emerald-400: #78D6A1;
+  --color-emerald-500: #55C685;
+  --color-emerald-600: #39A665;
+  --color-emerald-700: #29824D;
+
+  /* Soft Periwinkle Blue (Indigo) */
+  --color-indigo-50: #F4F5FB;
+  --color-indigo-100: #E4E7F4;
+  --color-indigo-200: #C9CFE9;
+  --color-indigo-300: #AEB7DD;
+  --color-indigo-400: #8E9CE1;
+  --color-indigo-500: #6B7DD4;
+  --color-indigo-600: #5262B5;
+  --color-indigo-700: #3E4B8F;
+
+  /* Clean Neutrals */
+  --color-neutral-50: #FCFCFC;
+  --color-neutral-100: #F5F5F5;
+  --color-neutral-200: #EAEAEC;
+  --color-neutral-300: #D5D5D8;
+  --color-neutral-400: #A1A1AA;
+  --color-neutral-500: #71717A;
+  --color-neutral-600: #52525B;
+  --color-neutral-700: #3F3F46;
+  --color-neutral-800: #27272A;
+  --color-neutral-900: #1C1C1F;
+  --color-neutral-950: #111113;
+}
