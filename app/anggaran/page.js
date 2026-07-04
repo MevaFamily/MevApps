@@ -484,40 +484,38 @@ export default function AnggaranPage() {
                     )}
                   </div>
 
-                  <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-100 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <input 
-                        type="checkbox"
-                        id="isRecurring"
-                        checked={isRecurring}
-                        onChange={(e) => setIsRecurring(e.target.checked)}
-                        className="w-4 h-4 text-neutral-950 border-neutral-300 rounded focus:ring-neutral-950 focus:ring-2"
-                      />
-                      <label htmlFor="isRecurring" className="text-xs font-semibold text-neutral-600 cursor-pointer select-none">
-                        Jadikan Tagihan Rutin Bulanan
-                      </label>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between bg-white border border-neutral-100 rounded-xl p-3.5 shadow-sm">
+                      <div>
+                        <p className="text-xs font-semibold text-neutral-800">Jadwalkan Tagihan Bulanan</p>
+                        <p className="text-[10px] text-neutral-400 mt-0.5">Ingatkan untuk catat cepat tiap bulan</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRecurring(!isRecurring);
+                          if (!isRecurring && !dueDate) setDueDate("1");
+                        }}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${isRecurring ? 'bg-neutral-950' : 'bg-neutral-200'}`}
+                      >
+                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isRecurring ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </button>
                     </div>
 
                     {isRecurring && (
                       <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                        <label className="block text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-1">Tanggal Jatuh Tempo (1-31)</label>
-                        <input 
-                          type="text"
-                          inputMode="numeric"
+                        <label className="block text-[10px] font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">Tanggal Jatuh Tempo</label>
+                        <select
                           value={dueDate}
-                          onChange={(e) => {
-                            let val = e.target.value.replace(/[^0-9]/g, '');
-                            if (val !== "") {
-                              let num = parseInt(val, 10);
-                              if (num > 31) val = "31";
-                              if (num < 1) val = "1";
-                            }
-                            setDueDate(val);
-                          }}
-                          placeholder="Contoh: 5"
-                          className="w-full bg-white border border-neutral-200 rounded-xl px-3 py-2 text-neutral-900 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                          onChange={(e) => setDueDate(e.target.value)}
+                          className="w-full bg-white border border-neutral-200 rounded-xl px-4 py-3 text-neutral-900 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-200 font-medium transition-all"
                           required={isRecurring}
-                        />
+                        >
+                          <option value="" disabled>Pilih tanggal tagihan...</option>
+                          {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                            <option key={day} value={String(day)}>Setiap Tanggal {day}</option>
+                          ))}
+                        </select>
                       </div>
                     )}
                   </div>

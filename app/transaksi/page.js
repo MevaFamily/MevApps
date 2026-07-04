@@ -114,45 +114,6 @@ function TransaksiContent() {
   const isOverBudget = budgetDiff < 0;
   const absDiff = Math.abs(budgetDiff);
 
-  // Calculate unfilled budgets for quick add
-  const expensesByCategoryAndSub = transactions
-    .filter(tx => tx.type === 'pengeluaran' && tx.date.startsWith(monthKey))
-    .reduce((acc, tx) => {
-      const catKey = tx.category;
-      const subKey = tx.subcategory;
-      if (catKey) acc[catKey] = (acc[catKey] || 0) + Number(tx.amount);
-      if (subKey) acc[`${catKey}::${subKey}`] = (acc[`${catKey}::${subKey}`] || 0) + Number(tx.amount);
-      return acc;
-    }, {});
-
-  const unfilledBudgets = [];
-  expensesCategories.forEach(cat => {
-    const subs = subcategories.filter(sc => sc.category_id === cat.id);
-    if (subs.length === 0) {
-      const b = budgets.find(b => b.category === cat.id && b.month === monthKey);
-      if (b) {
-        const spent = expensesByCategoryAndSub[cat.name] || 0;
-        const limit = Number(b.amount_limit);
-        const remaining = limit - spent;
-        if (remaining > 0) {
-          unfilledBudgets.push({ id: cat.id, category: cat.name, subcategory: '', remaining });
-        }
-      }
-    } else {
-      subs.forEach(s => {
-        const b = budgets.find(b => b.category === s.id && b.month === monthKey);
-        if (b) {
-          const spent = expensesByCategoryAndSub[`${cat.name}::${s.name}`] || 0;
-          const limit = Number(b.amount_limit);
-          const remaining = limit - spent;
-          if (remaining > 0) {
-            unfilledBudgets.push({ id: s.id, category: cat.name, subcategory: s.name, remaining });
-          }
-        }
-      });
-    }
-  });
-
   // Calculate due bills
   const realToday = new Date();
   const isCurrentMonth = currentDate.getMonth() === realToday.getMonth() && currentDate.getFullYear() === realToday.getFullYear();
@@ -174,6 +135,53 @@ function TransaksiContent() {
       }
     });
   }
+
+  // Calculate unfilled budgets for quick add
+  const expensesByCategoryAndSub = transactions
+    .filter(tx => tx.type === 'pengeluaran' && tx.date.startsWith(monthKey))
+    .reduce((acc, tx) => {
+      const catKey = tx.category;
+      const subKey = tx.subcategory;
+      if (catKey) acc[catKey] = (acc[catKey] || 0) + Number(tx.amount);
+      if (subKey) acc[`${catKey}::${subKey}`] = (acc[`${catKey}::${subKey}`] || 0) + Number(tx.amount);
+      return acc;
+    }, {});
+
+  const unfilledBudgets = [];
+  expensesCategories.forEach(cat => {
+    const subs = subcategories.filter(sc => sc.category_id === cat.id);
+    if (subs.length === 0) {
+      const b = budgets.find(b => b.category === cat.id && b.month === monthKey);
+      if (b) {
+        const spent = expensesByCategoryAndSub[cat.name] || 0;
+        const limit = Number(b.amount_limit);
+        const remaining = limit - spent;
+        if (remaining > 0) {
+          // Check if already in Reminder (unpaidBills)
+          const inReminder = unpaidBills.some(bill => bill.category === cat.name && !bill.subcategory);
+          if (!inReminder) {
+            unfilledBudgets.push({ id: cat.id, category: cat.name, subcategory: '', remaining });
+          }
+        }
+      }
+    } else {
+      subs.forEach(s => {
+        const b = budgets.find(b => b.category === s.id && b.month === monthKey);
+        if (b) {
+          const spent = expensesByCategoryAndSub[`${cat.name}::${s.name}`] || 0;
+          const limit = Number(b.amount_limit);
+          const remaining = limit - spent;
+          if (remaining > 0) {
+            // Check if already in Reminder (unpaidBills)
+            const inReminder = unpaidBills.some(bill => bill.category === cat.name && bill.subcategory === s.name);
+            if (!inReminder) {
+              unfilledBudgets.push({ id: s.id, category: cat.name, subcategory: s.name, remaining });
+            }
+          }
+        }
+      });
+    }
+  });
 
   // Group by date
   const groupedTransactions = filteredTx.reduce((acc, tx) => {
@@ -243,7 +251,7 @@ function TransaksiContent() {
       {unpaidBills.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-sm font-bold text-neutral-900 tracking-tight">Tagihan Belum Dibayar</h2>
+            <h2 className="text-sm font-bold text-neutral-900 tracking-tight">Reminder</h2>
             <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{unpaidBills.length}</span>
             <p className="text-[10px] text-rose-500 ml-auto font-medium animate-pulse">Lewat Jatuh Tempo</p>
           </div>
@@ -273,7 +281,7 @@ function TransaksiContent() {
       {unfilledBudgets.length > 0 && (
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-sm font-bold text-neutral-900 tracking-tight">Anggaran Tersisa</h2>
+            <h2 className="text-sm font-bold text-neutral-900 tracking-tight">Shortcut</h2>
             <span className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-0.5 rounded-full">{unfilledBudgets.length}</span>
             <p className="text-[10px] text-neutral-400 ml-auto">Pilih untuk catat cepat</p>
           </div>
@@ -284,10 +292,9 @@ function TransaksiContent() {
                 onClick={() => setSelectedTx({ isQuickAdd: true, type: 'pengeluaran', category: ub.category, subcategory: ub.subcategory, amount: ub.remaining })}
                 className="shrink-0 snap-start bg-white border border-neutral-100 rounded-xl p-3 w-44 shadow-sm cursor-pointer hover:border-rose-300 hover:shadow-md transition-all group"
               >
-                <p className="text-xs font-semibold text-neutral-900 truncate mb-1 group-hover:text-rose-600 transition-colors">
+                <p className="text-xs font-semibold text-neutral-900 truncate mb-2 group-hover:text-rose-600 transition-colors">
                   {ub.category} {ub.subcategory && <span className="text-neutral-400 font-normal text-[10px]">({ub.subcategory})</span>}
                 </p>
-                <p className="text-[10px] text-neutral-400 mb-2 truncate">Sisa dana bulan ini</p>
                 <div className="flex justify-between items-center">
                   <p className="text-xs font-bold text-rose-500">Rp {ub.remaining.toLocaleString('id-ID')}</p>
                   <div className="w-5 h-5 rounded-full bg-neutral-50 flex items-center justify-center group-hover:bg-rose-500 group-hover:text-white transition-colors text-neutral-400">
