@@ -3,7 +3,7 @@ import { useState, useEffect, Suspense, useRef } from "react";
 import useAppStore from "@/store/useAppStore";
 import TransactionForm from "@/components/TransactionForm";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, X, Search } from "lucide-react";
 
 function TransaksiContent() {
   const transactions = useAppStore(state => state.transactions);
@@ -22,6 +22,7 @@ function TransaksiContent() {
   const querySubcat = searchParams.get('subcat');
 
   const [selectedTx, setSelectedTx] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Parse queryMonth to Date object or use current date
   const [currentDate, setCurrentDate] = useState(() => {
@@ -77,6 +78,19 @@ function TransaksiContent() {
   
   if (querySubcat) {
     filteredTx = filteredTx.filter(tx => tx.subcategory === querySubcat);
+  }
+
+  // Filter pencarian cerdas (Smart Search)
+  if (searchTerm) {
+    const lowerSearch = searchTerm.toLowerCase();
+    filteredTx = filteredTx.filter(tx => {
+      return (
+        (tx.notes && tx.notes.toLowerCase().includes(lowerSearch)) ||
+        (tx.category && tx.category.toLowerCase().includes(lowerSearch)) ||
+        (tx.subcategory && tx.subcategory.toLowerCase().includes(lowerSearch)) ||
+        (tx.amount && tx.amount.toString().includes(lowerSearch))
+      );
+    });
   }
 
   // Hitung total pengeluaran bulan ini (berdasarkan filter aktif)
@@ -201,6 +215,28 @@ function TransaksiContent() {
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Riwayat</h1>
           <p className="text-sm text-neutral-400 capitalize">{queryMonth ? `Filter: ${currentMonthName}` : "Bulan Ini"}</p>
         </div>
+      </div>
+
+      {/* Pencarian Cerdas (Smart Search) */}
+      <div className="mb-6 relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search size={16} className="text-neutral-400" />
+        </div>
+        <input
+          type="text"
+          placeholder="Cari transaksi (catatan, kategori, atau nominal)..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full bg-white border border-neutral-200 text-neutral-900 text-sm rounded-xl focus:ring-indigo-500 focus:border-indigo-500 block pl-10 p-2.5 transition-shadow shadow-sm"
+        />
+        {searchTerm && (
+          <button 
+            onClick={() => setSearchTerm('')}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-600"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
 
       {/* Active Filter Indicator */}
