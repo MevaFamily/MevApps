@@ -500,7 +500,7 @@ export default function AkunPage() {
                   type="text" inputMode="numeric"
                   className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-lg font-semibold text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-100"
                   value={targetAmount} onChange={handleTargetChange}
-                  placeholder="0 (Kosongkan jika bukan tabungan)"
+                  placeholder="Contoh: 10.000.000"
                 />
               </div>
 
