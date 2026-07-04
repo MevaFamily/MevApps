@@ -217,23 +217,19 @@ export default function RangkumanPage() {
       </div>
 
       {/* Filters in 1 Row */}
-      <div className="flex gap-3 mb-6">
-        {/* Type selector */}
-        <div className="flex-1 flex bg-neutral-100 p-0.5 rounded-lg border border-neutral-200">
-          {['pengeluaran', 'pemasukan'].map(tab => (
-            <button
-              key={tab} type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-1.5 text-xs font-semibold rounded-md transition-colors capitalize ${
-                activeTab === tab 
-                  ? (tab === 'pengeluaran' ? 'bg-rose-500 text-white shadow-sm' : 'bg-emerald-500 text-white shadow-sm')
-                  : 'text-neutral-500 hover:text-neutral-900'
-              }`}
-            >
-              {tab === 'pengeluaran' ? 'Keluar' : 'Masuk'}
-            </button>
-          ))}
-        </div>
+      <div className="flex gap-3 mb-6 items-center">
+        {/* Type selector (Single Toggle Button) */}
+        <button
+          type="button"
+          onClick={() => setActiveTab(prev => prev === 'pengeluaran' ? 'pemasukan' : 'pengeluaran')}
+          className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl border transition-all text-center select-none shadow-sm ${
+            activeTab === 'pengeluaran' 
+              ? 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100' 
+              : 'bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100'
+          }`}
+        >
+          {activeTab === 'pengeluaran' ? 'Pengeluaran' : 'Pemasukan'}
+        </button>
         
         {/* Period selector */}
         <div className="flex-[1.2] flex bg-neutral-100 p-0.5 rounded-lg border border-neutral-200">
