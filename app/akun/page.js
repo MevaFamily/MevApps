@@ -2,8 +2,9 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import useAppStore from "@/store/useAppStore";
 import { supabase } from "@/lib/supabase";
-import { ResponsiveContainer, LineChart, Line, XAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, Tooltip, PieChart, Pie, Cell, Legend } from "recharts";
 import ModalBottomSheet from "@/components/ModalBottomSheet";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 
 
@@ -13,6 +14,9 @@ export default function AkunPage() {
   const transactions = useAppStore(state => state.transactions);
   const [showModal, setShowModal] = useState(false);
   const [editData, setEditData] = useState(null);
+  
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const [activeChartTab, setActiveChartTab] = useState("trend");
   
   const [name, setName] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("Umum");
@@ -51,6 +55,22 @@ export default function AkunPage() {
   };
 
   const trendData = useMemo(() => getHistoricalNetWorth(), [transactions, netWorth]);
+
+  const pieData = useMemo(() => {
+    return Object.entries(groupedAccounts).map(([group, accs]) => {
+      const value = accs.reduce((sum, a) => sum + Number(a.balance), 0);
+      return { name: group, value: value > 0 ? value : 0 };
+    }).filter(item => item.value > 0);
+  }, [groupedAccounts]);
+
+  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#4b5563'];
+
+  const toggleGroupCollapse = (groupType) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [groupType]: !prev[groupType]
+    }));
+  };
 
   const handleAmountChange = (e) => {
     let rawValue = e.target.value.replace(/[^0-9]/g, ''); 
@@ -225,28 +245,88 @@ export default function AkunPage() {
       </div>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-100 mb-8">
-        <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider mb-4">Tren Kekayaan (6 Bulan)</h3>
-        <div className="h-40 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendData}>
-              <XAxis 
-                dataKey="month" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fontSize: 10, fill: '#a3a3a3' }} 
-                dy={10}
-              />
-              <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#f3f4f6', strokeWidth: 2 }} />
-              <Line 
-                type="monotone" 
-                dataKey="netWorth" 
-                stroke="#10b981" 
-                strokeWidth={3} 
-                dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }}
-                activeDot={{ r: 6, fill: '#059669' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">
+            {activeChartTab === 'trend' ? 'Tren Kekayaan (6 Bulan)' : 'Distribusi Aset'}
+          </h3>
+          <div className="flex bg-neutral-100 p-0.5 rounded-lg border border-neutral-200">
+            <button 
+              onClick={() => setActiveChartTab('trend')}
+              className={`px-2 py-1 text-[10px] font-semibold rounded-md transition-colors ${activeChartTab === 'trend' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900'}`}
+            >
+              Tren
+            </button>
+            <button 
+              onClick={() => setActiveChartTab('distribusi')}
+              className={`px-2 py-1 text-[10px] font-semibold rounded-md transition-colors ${activeChartTab === 'distribusi' ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-900'}`}
+            >
+              Distribusi
+            </button>
+          </div>
+        </div>
+        
+        <div className="h-44 w-full flex items-center justify-center">
+          {activeChartTab === 'trend' ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData}>
+                <XAxis 
+                  dataKey="month" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 10, fill: '#a3a3a3' }} 
+                  dy={10}
+                />
+                <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#f3f4f6', strokeWidth: 2 }} />
+                <Line 
+                  type="monotone" 
+                  dataKey="netWorth" 
+                  stroke="#10b981" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, fill: '#10b981', strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: '#059669' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            pieData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="35%"
+                    cy="50%"
+                    innerRadius={30}
+                    outerRadius={50}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value) => [`Rp ${value.toLocaleString('id-ID')}`, 'Saldo']}
+                    contentStyle={{ background: '#171717', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '10px' }}
+                  />
+                  <Legend 
+                    layout="vertical"
+                    align="right"
+                    verticalAlign="middle"
+                    iconSize={8}
+                    iconType="circle"
+                    formatter={(value, entry) => {
+                      const total = pieData.reduce((sum, item) => sum + item.value, 0);
+                      const itemVal = entry.payload.value;
+                      const pct = total > 0 ? ((itemVal / total) * 100).toFixed(1) : 0;
+                      return <span className="text-[10px] text-neutral-600 font-medium">{value} ({pct}%)</span>;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-xs text-neutral-400">Tidak ada saldo aset untuk dianalisis</div>
+            )
+          )}
         </div>
       </div>
 
@@ -256,36 +336,47 @@ export default function AkunPage() {
           if (groupAccs.length === 0) return null;
           
           const groupTotal = groupAccs.reduce((sum, a) => sum + Number(a.balance), 0);
+          const isCollapsed = collapsedGroups[groupType];
 
           return (
             <div key={groupType}>
-              <div className="flex justify-between items-center mb-3 px-1">
-                <h3 className="font-bold text-xs uppercase tracking-wider text-neutral-400">{groupType}</h3>
+              <div 
+                onClick={() => toggleGroupCollapse(groupType)}
+                className="flex justify-between items-center mb-3 px-1 cursor-pointer select-none hover:opacity-80 transition-opacity"
+              >
+                <h3 className="font-bold text-xs uppercase tracking-wider text-neutral-400 flex items-center gap-1.5">
+                  <span className="text-neutral-400">
+                    {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  </span>
+                  {groupType}
+                </h3>
                 <span className="text-xs font-bold text-neutral-800 bg-neutral-100 border border-neutral-200 px-3 py-1 rounded-full shadow-sm">
                   Rp {groupTotal.toLocaleString('id-ID')}
                 </span>
               </div>
-              <div className="space-y-3">
-                {groupAccs.map(acc => (
-                  <div 
-                    key={acc.id} 
-                    onClick={() => openEditModal(acc)}
-                    className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-4 flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-neutral-50 border border-neutral-100 flex items-center justify-center">
-                        {getAccountIcon(acc)}
+              {!isCollapsed && (
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                  {groupAccs.map(acc => (
+                    <div 
+                      key={acc.id} 
+                      onClick={() => openEditModal(acc)}
+                      className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-4 flex justify-between items-center cursor-pointer hover:opacity-80 transition-opacity"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-neutral-50 border border-neutral-100 flex items-center justify-center">
+                          {getAccountIcon(acc)}
+                        </div>
+                        <h4 className="font-medium text-neutral-900">{acc.name}</h4>
                       </div>
-                      <h4 className="font-medium text-neutral-900">{acc.name}</h4>
+                      <div className="text-right">
+                        <span className={`font-bold text-sm ${Number(acc.balance) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          Rp {Number(acc.balance).toLocaleString('id-ID')}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <span className={`font-bold text-sm ${Number(acc.balance) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        Rp {Number(acc.balance).toLocaleString('id-ID')}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
