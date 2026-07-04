@@ -114,6 +114,33 @@ export default function TransactionForm({ onClose, initialData = null }) {
       .slice(0, 4);
   }, [categoryName, subcategoryName, transactions]);
 
+  const handleCategoryKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      if (showCatDropdown && filteredCategories.length > 0) {
+        setCategoryName(filteredCategories[0].name);
+        setShowCatDropdown(false);
+        setSubcategoryName('');
+      }
+    }
+  };
+
+  const handleSubcategoryKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      if (showSubcatDropdown && filteredSubcategories.length > 0) {
+        setSubcategoryName(filteredSubcategories[0].name);
+        setShowSubcatDropdown(false);
+      }
+    }
+  };
+
+  const handleNoteKeyDown = (e) => {
+    if (e.key === 'Tab') {
+      if (!note.trim() && noteSuggestions.length > 0) {
+        setNote(noteSuggestions[0]);
+      }
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!accountId) return alert("Pilih akun terlebih dahulu!");
@@ -300,6 +327,7 @@ export default function TransactionForm({ onClose, initialData = null }) {
                   value={categoryName} 
                   onChange={(e) => { setCategoryName(e.target.value); setShowCatDropdown(true); setSubcategoryName(''); }}
                   onFocus={() => setShowCatDropdown(true)}
+                  onKeyDown={handleCategoryKeyDown}
                   placeholder="Select or type new..." 
                 />
                 {showCatDropdown && (
@@ -323,6 +351,7 @@ export default function TransactionForm({ onClose, initialData = null }) {
                     value={subcategoryName} 
                     onChange={(e) => { setSubcategoryName(e.target.value); setShowSubcatDropdown(true); }}
                     onFocus={() => setShowSubcatDropdown(true)}
+                    onKeyDown={handleSubcategoryKeyDown}
                     placeholder="Select or type new..." 
                   />
                   {showSubcatDropdown && (
@@ -341,12 +370,13 @@ export default function TransactionForm({ onClose, initialData = null }) {
           )}
 
           <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1">Notes (Optional)</label>
+            <label className="block text-xs font-medium text-neutral-400 mb-1">Notes</label>
             <input 
               type="text" 
               className="w-full bg-neutral-50 border border-neutral-100 rounded-xl px-4 py-3 text-neutral-900 focus:outline-none focus:ring-2 focus:ring-neutral-200 text-sm" 
               value={note} 
               onChange={(e) => setNote(e.target.value)} 
+              onKeyDown={handleNoteKeyDown}
               placeholder="Write description..." 
             />
             {noteSuggestions.length > 0 && (
